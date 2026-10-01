@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, KanbanSquare, Package, Leaf, 
   UploadCloud, FileText, CheckCircle, X, Factory, FileSpreadsheet, 
@@ -37,6 +37,12 @@ export default function App() {
   const [modalTab, setModalTab] = useState('design');
   const [quoteValue, setQuoteValue] = useState(0);
 
+  // Client Filters
+  const [clientIndustry, setClientIndustry] = useState('All');
+  const [clientStatus, setClientStatus] = useState('All');
+  const [clientRep, setClientRep] = useState('All');
+  const [clientSort, setClientSort] = useState('default');
+
   const theme = brand === 'Explast' ? {
     primary: 'bg-blue-600',
     primaryHover: 'hover:bg-blue-700',
@@ -65,6 +71,23 @@ export default function App() {
     setModalTab('design');
   };
 
+  useEffect(() => {
+    if (activeView === 'Pipeline') {
+      const timer = setTimeout(() => {
+        const cards = document.querySelectorAll('.pipeline-project-card');
+        let maxHeight = 0;
+        cards.forEach(card => {
+          card.style.height = 'auto'; 
+          maxHeight = Math.max(maxHeight, card.offsetHeight);
+        });
+        cards.forEach(card => {
+          card.style.height = `${maxHeight}px`;
+        });
+      }, 50); // slight delay to let DOM render
+      return () => clearTimeout(timer);
+    }
+  }, [activeView, brand, projects]);
+
   const filteredProjects = projects.filter(p => p.brand === brand);
 
   const renderDashboard = () => {
@@ -74,19 +97,19 @@ export default function App() {
           <div className="grid grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
               <div className={`p-4 rounded-full ${theme.primaryLight} ${theme.primaryText}`}><Users size={24} /></div>
-              <div><p className="text-sm text-gray-500 font-semibold">My Leads</p><h3 className="text-2xl font-bold">4 Active</h3></div>
+              <div><p className="text-sm text-gray-700 font-bold">My Leads</p><h3 className="text-2xl font-bold text-gray-900">4 Active</h3></div>
             </div>
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
               <div className={`p-4 rounded-full ${theme.primaryLight} ${theme.primaryText}`}><Activity size={24} /></div>
-              <div><p className="text-sm text-gray-500 font-semibold">Active Projects</p><h3 className="text-2xl font-bold">12 Deals</h3></div>
+              <div><p className="text-sm text-gray-700 font-bold">Active Projects</p><h3 className="text-2xl font-bold text-gray-900">12 Deals</h3></div>
             </div>
             <div className="bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm flex items-center gap-4">
               <div className="p-4 rounded-full bg-red-100 text-red-600"><AlertTriangle size={24} /></div>
-              <div><p className="text-sm text-red-600 font-semibold">Cold Clients ({'>'}60 Days)</p><h3 className="text-2xl font-bold text-red-700">2 Action Needed</h3></div>
+              <div><p className="text-sm text-red-700 font-bold">Cold Clients ({'>'}60 Days)</p><h3 className="text-2xl font-bold text-red-900">2 Action Needed</h3></div>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <h3 className="font-bold text-lg mb-4">Recent Sales Activity</h3>
+            <h3 className="font-bold text-lg mb-4 text-gray-900">Recent Sales Activity</h3>
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
@@ -168,44 +191,101 @@ export default function App() {
     };
   }
 
-  const renderClients = () => (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-        <h2 className="text-xl font-bold text-gray-800">Client Directory</h2>
-        <button className={`px-4 py-2 ${theme.primary} text-white rounded-lg font-medium ${theme.primaryHover}`}>+ New Client</button>
-      </div>
-      <table className="w-full text-left">
-        <thead>
-          <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
-            <th className="p-4 font-semibold">Company Name</th>
-            <th className="p-4 font-semibold">Industry</th>
-            <th className="p-4 font-semibold">Status</th>
-            <th className="p-4 font-semibold">Last Contact</th>
-            <th className="p-4 font-semibold">Sales Rep</th>
-          </tr>
-        </thead>
-        <tbody>
-          {MOCK_CLIENTS.map((client) => (
-            <tr key={client.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${client.status === 'Cold' ? 'bg-red-50/50' : ''}`}>
-              <td className="p-4 font-bold text-gray-800">{client.name}</td>
-              <td className="p-4 text-gray-600">{client.industry}</td>
-              <td className="p-4">
-                <span className={`px-2 py-1 text-xs font-bold rounded-full 
-                  ${client.status === 'Client' ? 'bg-green-100 text-green-800' : 
-                    client.status === 'Lead' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
-                  {client.status}
-                </span>
-              </td>
-              <td className={`p-4 font-medium ${client.status === 'Cold' ? 'text-red-600 flex items-center gap-2' : 'text-gray-500'}`}>
-                {client.status === 'Cold' && <AlertTriangle size={14} />} {client.lastContact}
-              </td>
-              <td className="p-4 text-gray-600">{client.rep}</td>
+  const getDays = (str) => {
+    const num = parseInt(str) || 0;
+    if (str.includes('day')) return num;
+    if (str.includes('week')) return num * 7;
+    if (str.includes('month')) return num * 30;
+    return num;
+  };
+
+  const renderClients = () => {
+    let filteredClients = MOCK_CLIENTS.filter(c => {
+      if (clientIndustry !== 'All' && c.industry !== clientIndustry) return false;
+      if (clientStatus !== 'All' && c.status !== clientStatus) return false;
+      if (clientRep !== 'All' && c.rep !== clientRep) return false;
+      return true;
+    });
+
+    if (clientSort === 'high') {
+      filteredClients.sort((a, b) => getDays(b.lastContact) - getDays(a.lastContact));
+    } else if (clientSort === 'low') {
+      filteredClients.sort((a, b) => getDays(a.lastContact) - getDays(b.lastContact));
+    }
+
+    const industries = ['All', ...Array.from(new Set(MOCK_CLIENTS.map(c => c.industry)))];
+    const statuses = ['All', ...Array.from(new Set(MOCK_CLIENTS.map(c => c.status)))];
+    const reps = ['All', ...Array.from(new Set(MOCK_CLIENTS.map(c => c.rep)))];
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+          <h2 className="text-xl font-bold text-gray-800">Client Directory</h2>
+          <button className={`px-4 py-2 ${theme.primary} text-white rounded-lg font-medium ${theme.primaryHover}`}>+ New Client</button>
+        </div>
+        
+        <div className="p-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-800">Industry:</span>
+            <select value={clientIndustry} onChange={(e) => setClientIndustry(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-gray-50 focus:outline-none text-gray-900 font-medium">
+              {industries.map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-800">Status:</span>
+            <select value={clientStatus} onChange={(e) => setClientStatus(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-gray-50 focus:outline-none text-gray-900 font-medium">
+              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-800">Sales Rep:</span>
+            <select value={clientRep} onChange={(e) => setClientRep(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-gray-50 focus:outline-none text-gray-900 font-medium">
+              {reps.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm font-bold text-gray-800">Last Contact:</span>
+            <select value={clientSort} onChange={(e) => setClientSort(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-gray-50 focus:outline-none text-gray-900 font-medium">
+              <option value="default">Default</option>
+              <option value="high">Longest Ago (High)</option>
+              <option value="low">Most Recent (Low)</option>
+            </select>
+          </div>
+        </div>
+
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
+              <th className="p-4 font-semibold">Company Name</th>
+              <th className="p-4 font-semibold">Industry</th>
+              <th className="p-4 font-semibold">Status</th>
+              <th className="p-4 font-semibold">Last Contact</th>
+              <th className="p-4 font-semibold">Sales Rep</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+          </thead>
+          <tbody>
+            {filteredClients.map((client) => (
+              <tr key={client.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${client.status === 'Cold' ? 'bg-red-50/50' : ''}`}>
+                <td className="p-4 font-bold text-gray-800">{client.name}</td>
+                <td className="p-4 text-gray-600">{client.industry}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 text-xs font-bold rounded-full 
+                    ${client.status === 'Client' ? 'bg-green-100 text-green-800' : 
+                      client.status === 'Lead' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
+                    {client.status}
+                  </span>
+                </td>
+                <td className={`p-4 font-medium ${client.status === 'Cold' ? 'text-red-600 flex items-center gap-2' : 'text-gray-500'}`}>
+                  {client.status === 'Cold' && <AlertTriangle size={14} />} {client.lastContact}
+                </td>
+                <td className="p-4 text-gray-600">{client.rep}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <div className={`flex h-screen w-full font-sans ${theme.appBg} transition-colors duration-300`}>
@@ -274,9 +354,9 @@ export default function App() {
           
           {/* Projects Pipeline */}
           {activeView === 'Pipeline' && (
-            <div className="flex h-full gap-6">
+            <div className="grid grid-cols-5 gap-4 h-full min-w-0">
               {STAGES.map(stage => (
-                <div key={stage} className="flex-shrink-0 w-80 flex flex-col">
+                <div key={stage} className="flex flex-col min-w-0">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-700 uppercase tracking-wider text-sm">{stage}</h3>
                     <span className="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">
@@ -289,7 +369,7 @@ export default function App() {
                       <div 
                         key={project.id} 
                         onClick={() => openProject(project)}
-                        className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 hover:border-gray-300`}
+                        className={`pipeline-project-card flex flex-col bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 hover:border-gray-300`}
                       >
                         <div className="flex justify-between items-start mb-3">
                           <span className={`text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-600`}>{project.type}</span>
@@ -297,7 +377,7 @@ export default function App() {
                         <h4 className="font-bold text-gray-900 mb-1 leading-tight">{project.title}</h4>
                         <p className="text-sm text-gray-500 mb-4 font-medium">{project.client}</p>
                         
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
                           <span className="text-sm font-bold text-gray-700">MUR {project.value.toLocaleString()}</span>
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${theme.badge}`}>
                             <FileText size={14} />
