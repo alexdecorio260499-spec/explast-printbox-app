@@ -33,7 +33,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('Dashboard');
   
   const [projects, setProjects] = useState(MOCK_PROJECTS);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
   const [modalTab, setModalTab] = useState('design');
   const [quoteValue, setQuoteValue] = useState(0);
 
@@ -65,7 +65,7 @@ export default function App() {
     badge: 'bg-emerald-100 text-emerald-800'
   };
 
-  const openProject = (project) => {
+  const openProject = (project: any) => {
     setSelectedProject(project);
     setQuoteValue(project.value);
     setModalTab('design');
@@ -74,7 +74,7 @@ export default function App() {
   useEffect(() => {
     if (activeView === 'Pipeline') {
       const timer = setTimeout(() => {
-        const cards = document.querySelectorAll('.pipeline-project-card');
+        const cards = document.querySelectorAll<HTMLElement>('.pipeline-project-card');
         let maxHeight = 0;
         cards.forEach(card => {
           card.style.height = 'auto'; 
@@ -191,7 +191,7 @@ export default function App() {
     };
   }
 
-  const getDays = (str) => {
+  const getDays = (str: string) => {
     const num = parseInt(str) || 0;
     if (str.includes('day')) return num;
     if (str.includes('week')) return num * 7;
