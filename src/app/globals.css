@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Global Neutral Palette */
+  --bg-page: #F7F8F6;
+  --bg-secondary: #F1F3F0;
+  --bg-card: #FFFFFF;
+  --bg-input: #FFFFFF;
+  --bg-disabled: #EEF1EF;
+  
+  --text-primary: #17211F;
+  --text-secondary: #66716D;
+  --text-muted: #8C9692;
+  
+  --border-subtle: #E3E8E5;
+  --border-strong: #D3DBD7;
+  
+  /* Semantic Palette */
+  --color-success: #4F8F68;
+  --color-warning: #C28A35;
+  --color-error: #B85C5C;
+  --color-info: #5D7F91;
+  --color-neutral: #8C9692;
+}
+
+[data-brand="explast"] {
+  --brand-primary: #168C86;
+  --brand-primary-dark: #0F625F;
+  --brand-primary-light: #DDF2EF;
+  --brand-secondary: #6E4A9E;
+  --brand-secondary-dark: #4E356F;
+  --brand-secondary-light: #EEE7F6;
+  --brand-accent: #4F8F68;
+}
+
+[data-brand="printbox"] {
+  --brand-primary: #2F6B5F;
+  --brand-primary-dark: #214D45;
+  --brand-primary-light: #E2F0EC;
+  --brand-secondary: #86AFA3;
+  --brand-secondary-dark: #242A28; /* Dark ink */
+  --brand-secondary-light: #EDF4F1;
+  --brand-accent: #C98755;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-bg-page: var(--bg-page);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-card: var(--bg-card);
+  --color-bg-input: var(--bg-input);
+  --color-bg-disabled: var(--bg-disabled);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-info: var(--color-info);
+  --color-neutral: var(--color-neutral);
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dark: var(--brand-primary-dark);
+  --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-dark: var(--brand-secondary-dark);
+  --color-brand-secondary-light: var(--brand-secondary-light);
+  --color-brand-accent: var(--brand-accent);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', Arial, Helvetica, sans-serif;
+  /* Smooth transitions for theme switching */
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
 }
