@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { BrandToggle } from '../components/ui/BrandToggle';
+import { AdaptiveSalesFormModal } from '../components/sales/AdaptiveSalesFormModal';
+import { SalesDataService } from '../lib/sales/data-service';
+import { Client } from '../types/sales';
 
 import {
   LayoutDashboard,
@@ -28,6 +31,28 @@ import {
 export default function App() {
   const [brand, setBrand] = useState<'Explast' | 'PrintBox'>('Explast');
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [resumeDraftId, setResumeDraftId] = useState<string | undefined>();
+  const [projects, setProjects] = useState<any[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  // Refresh projects and clients from data service
+  async function refreshData() {
+    try {
+      const [allProjects, allClients] = await Promise.all([
+        SalesDataService.getAllProjects(),
+        SalesDataService.getClients(),
+      ]);
+      setProjects(allProjects);
+      setClients(allClients);
+    } catch (e) {
+      console.error('Error refreshing app data:', e);
+    }
+  }
+
+  useEffect(() => {
+    refreshData();
+  }, []);
 
   const navigation = [
     { name: 'Dashboard', icon: LayoutDashboard },
@@ -103,9 +128,36 @@ export default function App() {
 
         {/* CONTENT AREA */}
         <div className="p-8 lg:p-10 max-w-7xl mx-auto w-full flex-1">
-          {activeTab === 'Dashboard' && <DashboardView brand={brand} />}
-          {activeTab === 'Projects' && <PipelineView brand={brand} />}
-          {activeTab === 'Clients' && <ClientsView brand={brand} />}
+          {activeTab === 'Dashboard' && (
+            <DashboardView 
+              brand={brand} 
+              projects={projects}
+              onNewProject={() => {
+                setResumeDraftId(undefined);
+                setIsFormOpen(true);
+              }} 
+            />
+          )}
+          {activeTab === 'Projects' && (
+            <PipelineView 
+              brand={brand} 
+              projects={projects}
+              onNewProject={() => {
+                setResumeDraftId(undefined);
+                setIsFormOpen(true);
+              }} 
+            />
+          )}
+          {activeTab === 'Clients' && (
+            <ClientsView 
+              brand={brand} 
+              clients={clients}
+              onAddClient={() => {
+                setResumeDraftId(undefined);
+                setIsFormOpen(true);
+              }} 
+            />
+          )}
           {activeTab === 'Settings' && <SettingsView />}
           {['Products', 'Quotations', 'Design', 'Production', 'Reports'].includes(activeTab) && (
             <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border-strong rounded-lg">
@@ -115,11 +167,25 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* ADAPTIVE SALES REQUEST WORKFLOW MODAL */}
+      <AdaptiveSalesFormModal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        initialBrand={brand}
+        resumeDraftId={resumeDraftId}
+        onSuccess={async (projectId) => {
+          await refreshData();
+          setActiveTab('Projects');
+        }}
+      />
     </div>
   );
 }
 
-function DashboardView({ brand }: { brand: string }) {
+function DashboardView({ brand, projects, onNewProject }: { brand: string; projects: any[]; onNewProject: () => void }) {
+  const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
+  
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
@@ -127,11 +193,13 @@ function DashboardView({ brand }: { brand: string }) {
           <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Overview</h2>
           <h1 className="text-2xl font-medium text-text-primary">Operations Dashboard</h1>
         </div>
-        <Button><Plus className="w-4 h-4 mr-2" /> New Project</Button>
+        <Button onClick={onNewProject}>
+          <Plus className="w-4 h-4 mr-2" /> New Project
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        <KPICard label="Active Projects" value="24" trend="+3 this week" accent="brand" />
+        <KPICard label="Active Projects" value={String(brandProjects.length || 24)} trend="+3 this week" accent="brand" />
         <KPICard label="Open Quotations" value="8" trend="Awaiting approval" accent="purple" />
         <KPICard label="Pending Approvals" value="5" trend="Needs attention" accent="amber" />
         <KPICard label="In Production" value="12" trend="On schedule" accent="success" />
@@ -139,7 +207,10 @@ function DashboardView({ brand }: { brand: string }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Recent Activity</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Recent Projects & Requests</h3>
+            <span className="text-xs text-brand-primary font-medium">{brandProjects.length} Total</span>
+          </div>
           <Card className="p-0 overflow-hidden">
             <table className="w-full text-sm text-left">
               <thead className="bg-bg-secondary text-text-muted text-[11px] uppercase tracking-wider">
@@ -151,36 +222,29 @@ function DashboardView({ brand }: { brand: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
-                <tr className="hover:bg-bg-secondary/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-text-primary">Custom Takeaway Boxes</td>
-                  <td className="px-6 py-4 text-text-secondary">ABC Restaurant</td>
-                  <td className="px-6 py-4"><Badge variant="brand">Design</Badge></td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4 ml-auto" />
-                    </button>
-                  </td>
-                </tr>
-                <tr className="hover:bg-bg-secondary/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-text-primary">Eco Coffee Cups</td>
-                  <td className="px-6 py-4 text-text-secondary">Bean Roasters</td>
-                  <td className="px-6 py-4"><Badge variant="neutral">Quotation</Badge></td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4 ml-auto" />
-                    </button>
-                  </td>
-                </tr>
-                <tr className="hover:bg-bg-secondary/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-text-primary">Luxury Paper Bags</td>
-                  <td className="px-6 py-4 text-text-secondary">Boutique Paris</td>
-                  <td className="px-6 py-4"><Badge variant="success">Production</Badge></td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4 ml-auto" />
-                    </button>
-                  </td>
-                </tr>
+                {brandProjects.slice(0, 5).map((p, idx) => (
+                  <tr key={p.id || idx} className="hover:bg-bg-secondary/50 transition-colors group">
+                    <td className="px-6 py-4 font-medium text-text-primary">
+                      {p.project_name}
+                      {p.request_type && (
+                        <span className="ml-2 text-[10px] text-text-muted uppercase">({p.request_type})</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-text-secondary">
+                      {p.client?.company_name || p.clients?.company_name || 'Client Record'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={p.request_status === 'submitted' ? 'brand' : 'neutral'}>
+                        {p.kanban_stage || p.status || 'Discovery'}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical className="w-4 h-4 ml-auto" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </Card>
@@ -214,7 +278,7 @@ function DashboardView({ brand }: { brand: string }) {
   );
 }
 
-function KPICard({ label, value, trend, accent }: { label: string, value: string, trend: string, accent: 'brand'|'purple'|'amber'|'success' }) {
+function KPICard({ label, value, trend, accent }: { label: string; value: string; trend: string; accent: 'brand'|'purple'|'amber'|'success' }) {
   const accentBorders = {
     brand: 'border-brand-primary',
     purple: 'border-brand-secondary',
@@ -233,7 +297,7 @@ function KPICard({ label, value, trend, accent }: { label: string, value: string
   );
 }
 
-function AttentionCard({ title, desc, type, time }: { title: string, desc: string, type: 'warning'|'error'|'brand', time: string }) {
+function AttentionCard({ title, desc, type, time }: { title: string; desc: string; type: 'warning'|'error'|'brand'; time: string }) {
   const icons = {
     warning: <AlertCircle className="w-4 h-4 text-color-warning" />,
     error: <AlertCircle className="w-4 h-4 text-color-error" />,
@@ -254,128 +318,139 @@ function AttentionCard({ title, desc, type, time }: { title: string, desc: strin
   );
 }
 
-function PipelineView({ brand }: { brand: string }) {
+function PipelineView({ brand, projects, onNewProject }: { brand: string; projects: any[]; onNewProject: () => void }) {
   const stages = [
-    { name: 'DISCOVERY', count: 2, type: 'neutral' },
-    { name: 'DESIGN', count: 5, type: 'active' },
-    { name: 'QUOTATION', count: 3, type: 'neutral' },
-    { name: 'PRODUCTION', count: 12, type: 'completed' },
+    { name: 'DISCOVERY', count: 0, type: 'active' },
+    { name: 'DESIGN', count: 0, type: 'neutral' },
+    { name: 'QUOTATION', count: 0, type: 'neutral' },
+    { name: 'PRODUCTION', count: 0, type: 'completed' },
   ];
+
+  const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
 
   return (
     <div className="h-full flex flex-col animate-in fade-in duration-300">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Pipeline</h2>
-          <h1 className="text-2xl font-medium text-text-primary">Active Projects</h1>
+          <h1 className="text-2xl font-medium text-text-primary">Active Projects ({brand})</h1>
         </div>
         <div className="flex gap-3">
           <Button variant="outline"><Search className="w-4 h-4 mr-2" /> Search</Button>
-          <Button><Plus className="w-4 h-4 mr-2" /> New Project</Button>
+          <Button onClick={onNewProject}><Plus className="w-4 h-4 mr-2" /> New Project</Button>
         </div>
       </div>
 
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-6 min-w-max h-full">
-          {stages.map(stage => (
-            <div key={stage.name} className="w-[320px] flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    stage.type === 'active' ? 'bg-brand-primary' : 
-                    stage.type === 'completed' ? 'bg-brand-primary-light' : 'bg-border-strong'
-                  }`} />
-                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">{stage.name}</h3>
+          {stages.map(stage => {
+            const stageProjects = brandProjects.filter(p => {
+              const st = (p.kanban_stage || p.status || 'Discovery').toUpperCase();
+              return st.includes(stage.name);
+            });
+
+            return (
+              <div key={stage.name} className="w-[320px] flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${
+                      stage.type === 'active' ? 'bg-brand-primary' : 
+                      stage.type === 'completed' ? 'bg-brand-primary-light' : 'bg-border-strong'
+                    }`} />
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">{stage.name}</h3>
+                  </div>
+                  <span className="text-xs font-medium text-text-muted bg-bg-secondary px-2 py-0.5 rounded">
+                    {stageProjects.length}
+                  </span>
                 </div>
-                <span className="text-xs font-medium text-text-muted bg-bg-secondary px-2 py-0.5 rounded">{stage.count}</span>
-              </div>
-              
-              <div className="flex-1 space-y-4">
-                {/* Dummy Cards for Stage */}
-                <Card className={`p-4 border-t-2 shadow-sm ${stage.type === 'active' ? 'border-t-brand-primary' : 'border-t-transparent'}`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Takeaway Boxes</span>
-                    <button className="text-text-muted hover:text-text-primary"><MoreVertical className="w-3 h-3" /></button>
-                  </div>
-                  <h4 className="text-sm font-medium text-text-primary mb-1">ABC Restaurant</h4>
-                  <p className="text-xs text-text-secondary mb-4">5,000 units • Kraft Paper</p>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1 text-text-muted">
-                      <div className="w-5 h-5 rounded-full bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-[9px]">AL</div>
-                      <span>Operations</span>
-                    </div>
-                    {stage.type === 'active' && <span className="text-color-warning font-medium">Awaiting Feedback</span>}
-                  </div>
-                </Card>
-                {stage.name === 'PRODUCTION' && (
-                  <Card className="p-4 border-t-2 border-t-transparent shadow-sm">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Luxury Bags</span>
-                      <button className="text-text-muted hover:text-text-primary"><MoreVertical className="w-3 h-3" /></button>
-                    </div>
-                    <h4 className="text-sm font-medium text-text-primary mb-1">Boutique Paris</h4>
-                    <p className="text-xs text-text-secondary mb-4">10,000 units • Matte Finish</p>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-1 text-text-muted">
-                        <div className="w-5 h-5 rounded-full bg-bg-secondary text-text-secondary flex items-center justify-center font-bold text-[9px]">JD</div>
-                        <span>Production</span>
+                
+                <div className="flex-1 space-y-4">
+                  {stageProjects.map(proj => (
+                    <Card key={proj.id} className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-border-strong transition-colors cursor-pointer">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                          {proj.request_type || 'Packaging'}
+                        </span>
+                        <button className="text-text-muted hover:text-text-primary"><MoreVertical className="w-3 h-3" /></button>
                       </div>
-                      <span className="text-color-success font-medium">Printing</span>
+                      <h4 className="text-sm font-medium text-text-primary mb-1">{proj.project_name}</h4>
+                      <p className="text-xs text-text-secondary mb-4">
+                        {proj.client?.company_name || proj.clients?.company_name || 'Client'}
+                      </p>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1 text-text-muted">
+                          <div className="w-5 h-5 rounded-full bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-[9px]">AL</div>
+                          <span>Sales</span>
+                        </div>
+                        <Badge variant="brand">{proj.request_status || 'Active'}</Badge>
+                      </div>
+                    </Card>
+                  ))}
+
+                  {stageProjects.length === 0 && (
+                    <div className="border border-dashed border-border-subtle rounded-lg p-6 text-center text-xs text-text-muted">
+                      No projects in this stage
                     </div>
-                  </Card>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-function ClientsView({ brand }: { brand: string }) {
+function ClientsView({ brand, clients, onAddClient }: { brand: string; clients: Client[]; onAddClient: () => void }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Directory</h2>
-          <h1 className="text-2xl font-medium text-text-primary">Clients</h1>
+          <h1 className="text-2xl font-medium text-text-primary">Clients Directory</h1>
         </div>
-        <Button><Plus className="w-4 h-4 mr-2" /> Add Client</Button>
+        <Button onClick={onAddClient}><Plus className="w-4 h-4 mr-2" /> Add Client Request</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <ClientCard name="ABC Restaurant" projects={3} industry="Hospitality" action="Awaiting artwork approval" />
-        <ClientCard name="Bean Roasters" projects={1} industry="Food & Beverage" action="Quotation pending" />
-        <ClientCard name="Boutique Paris" projects={4} industry="Retail" action="In Production" />
-        <ClientCard name="TechGadget Inc" projects={0} industry="Electronics" action="Follow up required" />
+        {clients.map(c => (
+          <ClientCard 
+            key={c.id} 
+            name={c.company_name} 
+            contact={c.contact_name || ''} 
+            industry={c.industry || 'Packaging'} 
+            phone={c.contact_phone || ''}
+            email={c.contact_email || ''}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-function ClientCard({ name, projects, industry, action }: { name: string, projects: number, industry: string, action: string }) {
+function ClientCard({ name, contact, industry, phone, email }: { name: string; contact: string; industry: string; phone: string; email: string }) {
   return (
     <Card className="flex flex-col relative overflow-hidden group">
       <div className="absolute top-0 left-0 w-1 h-full bg-brand-primary opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-base font-medium text-text-primary">{name}</h3>
-          <p className="text-xs text-text-secondary mt-1">{industry}</p>
+          <p className="text-xs text-text-secondary mt-0.5">{contact}</p>
         </div>
         <div className="w-8 h-8 rounded bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-xs">
           {name.charAt(0)}
         </div>
       </div>
       
-      <div className="mt-auto pt-4 border-t border-border-subtle space-y-3">
+      <div className="mt-auto pt-4 border-t border-border-subtle space-y-2">
         <div className="flex justify-between items-center text-xs">
-          <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Active Projects</span>
-          <span className="font-medium text-text-primary">{projects}</span>
+          <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Industry</span>
+          <span className="font-medium text-text-primary">{industry}</span>
         </div>
         <div className="flex justify-between items-center text-xs">
-          <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Next Action</span>
-          <span className="text-brand-primary font-medium truncate ml-4">{action}</span>
+          <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Contact</span>
+          <span className="text-text-secondary truncate ml-4">{phone || email || 'N/A'}</span>
         </div>
       </div>
     </Card>
@@ -393,7 +468,7 @@ function SettingsView() {
       <Card className="space-y-6">
         <div>
           <h3 className="text-sm font-medium text-text-primary mb-1">Profile Information</h3>
-          <p className="text-xs text-text-secondary mb-4">Update your account details and preferences.</p>
+          <p className="text-xs text-text-secondary mb-4">Sales representative identity and business defaults.</p>
         </div>
         
         <div className="grid grid-cols-2 gap-6">
@@ -407,7 +482,7 @@ function SettingsView() {
           </div>
           <div className="col-span-2 space-y-2">
             <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted">Email Address</label>
-            <input type="email" defaultValue="alex@explast.com" className="w-full bg-bg-input border border-border-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-colors" />
+            <input type="email" defaultValue="alex@explast.mu" className="w-full bg-bg-input border border-border-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-colors" />
           </div>
         </div>
 
