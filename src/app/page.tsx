@@ -15,7 +15,6 @@ import {
   LayoutDashboard,
   Users,
   FolderKanban,
-  Package,
   FileText,
   Palette,
   Factory,
@@ -66,7 +65,6 @@ export default function App() {
     { name: 'Dashboard', icon: LayoutDashboard },
     { name: 'Clients', icon: Users },
     { name: 'Projects', icon: FolderKanban },
-    { name: 'Products', icon: Package },
     { name: 'Quotations', icon: FileText },
     { name: 'Design', icon: Palette },
     { name: 'Production', icon: Factory },
@@ -167,7 +165,7 @@ export default function App() {
             />
           )}
           {activeTab === 'Settings' && <SettingsView />}
-          {['Products', 'Quotations', 'Design', 'Production', 'Reports'].includes(activeTab) && (
+          {['Quotations', 'Design', 'Production', 'Reports'].includes(activeTab) && (
             <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border-strong rounded-lg">
               <p className="text-text-muted text-sm uppercase tracking-widest">{activeTab} MODULE</p>
               <p className="text-text-secondary mt-2">This section is currently under construction.</p>
