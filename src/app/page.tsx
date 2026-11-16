@@ -6,7 +6,9 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { BrandToggle } from '../components/ui/BrandToggle';
 import { AdaptiveSalesFormModal } from '../components/sales/AdaptiveSalesFormModal';
+import { ExplastSalesFormModal } from '../components/sales/ExplastSalesFormModal';
 import { SalesDataService } from '../lib/sales/data-service';
+import { ExplastSalesService } from '../lib/sales/explast-service';
 import { Client } from '../types/sales';
 
 import {
@@ -36,14 +38,20 @@ export default function App() {
   const [projects, setProjects] = useState<any[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
-  // Refresh projects and clients from data service
+  // Refresh projects and clients across both systems
   async function refreshData() {
     try {
-      const [allProjects, allClients] = await Promise.all([
+      const [allPrintboxProjects, allExplastProjects, allClients] = await Promise.all([
         SalesDataService.getAllProjects(),
+        ExplastSalesService.getAllExplastProjects(),
         SalesDataService.getClients(),
       ]);
-      setProjects(allProjects);
+
+      const map = new Map<string, any>();
+      allPrintboxProjects.forEach(p => map.set(p.id, p));
+      allExplastProjects.forEach(p => map.set(p.id, p));
+
+      setProjects(Array.from(map.values()));
       setClients(allClients);
     } catch (e) {
       console.error('Error refreshing app data:', e);
@@ -98,7 +106,7 @@ export default function App() {
             </div>
             <div className="text-sm">
               <p className="font-medium text-text-primary">Alex L.</p>
-              <p className="text-xs text-text-muted">Operations</p>
+              <p className="text-xs text-text-muted">{brand === 'Explast' ? 'Manufacturing Sales' : 'Studio Sales'}</p>
             </div>
           </div>
         </div>
@@ -110,7 +118,7 @@ export default function App() {
         <header className="h-16 bg-bg-card border-b border-border-subtle flex items-center justify-between px-8 sticky top-0 z-10">
           <div className="flex items-center space-x-4">
             <h1 className="text-sm font-medium text-text-primary">
-              {brand} <span className="text-text-muted mx-2">/</span> {brand === 'Explast' ? 'Packaging Operations' : 'Paper Packaging Studio'}
+              {brand} <span className="text-text-muted mx-2">/</span> {brand === 'Explast' ? 'Extrusion, Printing & Converting Operations' : 'Paper Packaging Studio'}
             </h1>
           </div>
           
@@ -168,17 +176,29 @@ export default function App() {
         </div>
       </main>
 
-      {/* ADAPTIVE SALES REQUEST WORKFLOW MODAL */}
-      <AdaptiveSalesFormModal
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        initialBrand={brand}
-        resumeDraftId={resumeDraftId}
-        onSuccess={async (projectId) => {
-          await refreshData();
-          setActiveTab('Projects');
-        }}
-      />
+      {/* DEDICATED INDEPENDENT WORKFLOW MODALS */}
+      {brand === 'Explast' ? (
+        <ExplastSalesFormModal
+          isOpen={isFormOpen}
+          onClose={() => setIsFormOpen(false)}
+          resumeDraftId={resumeDraftId}
+          onSuccess={async (projectId) => {
+            await refreshData();
+            setActiveTab('Projects');
+          }}
+        />
+      ) : (
+        <AdaptiveSalesFormModal
+          isOpen={isFormOpen}
+          onClose={() => setIsFormOpen(false)}
+          initialBrand="PrintBox"
+          resumeDraftId={resumeDraftId}
+          onSuccess={async (projectId) => {
+            await refreshData();
+            setActiveTab('Projects');
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -191,18 +211,30 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Overview</h2>
-          <h1 className="text-2xl font-medium text-text-primary">Operations Dashboard</h1>
+          <h1 className="text-2xl font-medium text-text-primary">
+            {brand === 'Explast' ? 'Explast Manufacturing Dashboard' : 'PrintBox Studio Dashboard'}
+          </h1>
         </div>
         <Button onClick={onNewProject}>
-          <Plus className="w-4 h-4 mr-2" /> New Project
+          <Plus className="w-4 h-4 mr-2" /> New Request
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <KPICard label="Active Projects" value={String(brandProjects.length || 24)} trend="+3 this week" accent="brand" />
         <KPICard label="Open Quotations" value="8" trend="Awaiting approval" accent="purple" />
-        <KPICard label="Pending Approvals" value="5" trend="Needs attention" accent="amber" />
-        <KPICard label="In Production" value="12" trend="On schedule" accent="success" />
+        <KPICard 
+          label={brand === 'Explast' ? 'Technical Reviews' : 'Pending Approvals'} 
+          value="5" 
+          trend="Needs attention" 
+          accent="amber" 
+        />
+        <KPICard 
+          label={brand === 'Explast' ? 'In Extrusion/Converting' : 'In Production'} 
+          value="12" 
+          trend="On schedule" 
+          accent="success" 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -217,6 +249,7 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
                 <tr>
                   <th className="px-6 py-3 font-medium">Project</th>
                   <th className="px-6 py-3 font-medium">Client</th>
+                  <th className="px-6 py-3 font-medium">Specification / Family</th>
                   <th className="px-6 py-3 font-medium">Stage</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -233,8 +266,19 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
                     <td className="px-6 py-4 text-text-secondary">
                       {p.client?.company_name || p.clients?.company_name || 'Client Record'}
                     </td>
+                    <td className="px-6 py-4 text-xs text-text-secondary">
+                      {p.formulation ? (
+                        <span>
+                          <strong className="text-text-primary">{p.material_family}</strong> • {p.formulation}
+                        </span>
+                      ) : p.items?.[0] ? (
+                        <span>{p.items[0].description || p.items[0].product_family}</span>
+                      ) : (
+                        'Standard'
+                      )}
+                    </td>
                     <td className="px-6 py-4">
-                      <Badge variant={p.request_status === 'submitted' ? 'brand' : 'neutral'}>
+                      <Badge variant={p.request_status === 'submitted' || p.request_status === 'ready_for_quotation' ? 'brand' : 'neutral'}>
                         {p.kanban_stage || p.status || 'Discovery'}
                       </Badge>
                     </td>
@@ -254,20 +298,20 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
           <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Needs Attention</h3>
           <div className="space-y-4">
             <AttentionCard 
-              title="Quotation Awaiting Approval"
-              desc="Bean Roasters - Eco Coffee Cups"
+              title={brand === 'Explast' ? 'Technical Assessment Pending' : 'Quotation Awaiting Approval'}
+              desc={brand === 'Explast' ? 'IPL - LDPE Grade 4 + OXO Sack' : 'Bean Roasters - Eco Coffee Cups'}
               type="warning"
               time="2 days ago"
             />
             <AttentionCard 
-              title="Design Feedback Required"
-              desc="ABC Restaurant - Takeaway Boxes"
+              title={brand === 'Explast' ? 'Cylinder Feasibility Review' : 'Design Feedback Required'}
+              desc={brand === 'Explast' ? 'ABC Restaurant - 8-Colour Poly Bag' : 'ABC Restaurant - Takeaway Boxes'}
               type="brand"
               time="4 hrs ago"
             />
             <AttentionCard 
-              title="Production Blocked"
-              desc="Gourmet Burger - Wrapping Paper"
+              title="Production Schedule"
+              desc={brand === 'Explast' ? 'Line 2 Extrusion running PP Elpro' : 'Gourmet Burger - Wrapping Paper'}
               type="error"
               time="1 hr ago"
             />
@@ -333,11 +377,11 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Pipeline</h2>
-          <h1 className="text-2xl font-medium text-text-primary">Active Projects ({brand})</h1>
+          <h1 className="text-2xl font-medium text-text-primary">Active {brand} Projects</h1>
         </div>
         <div className="flex gap-3">
           <Button variant="outline"><Search className="w-4 h-4 mr-2" /> Search</Button>
-          <Button onClick={onNewProject}><Plus className="w-4 h-4 mr-2" /> New Project</Button>
+          <Button onClick={onNewProject}><Plus className="w-4 h-4 mr-2" /> New Request</Button>
         </div>
       </div>
 
@@ -369,20 +413,28 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
                     <Card key={proj.id} className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-border-strong transition-colors cursor-pointer">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                          {proj.request_type || 'Packaging'}
+                          {proj.final_product_type || proj.request_type || 'Packaging'}
                         </span>
                         <button className="text-text-muted hover:text-text-primary"><MoreVertical className="w-3 h-3" /></button>
                       </div>
                       <h4 className="text-sm font-medium text-text-primary mb-1">{proj.project_name}</h4>
-                      <p className="text-xs text-text-secondary mb-4">
+                      <p className="text-xs text-text-secondary mb-2">
                         {proj.client?.company_name || proj.clients?.company_name || 'Client'}
                       </p>
-                      <div className="flex items-center justify-between text-[11px]">
+                      
+                      {/* Explast specific tags */}
+                      {proj.formulation && (
+                        <div className="mb-3 text-[10px] text-text-muted bg-bg-secondary px-2 py-1 rounded truncate">
+                          {proj.material_family} • {proj.formulation}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border-subtle/50">
                         <div className="flex items-center gap-1 text-text-muted">
                           <div className="w-5 h-5 rounded-full bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-[9px]">AL</div>
                           <span>Sales</span>
                         </div>
-                        <Badge variant="brand">{proj.request_status || 'Active'}</Badge>
+                        <Badge variant="brand">{proj.technical_assessment?.status || proj.request_status || 'Active'}</Badge>
                       </div>
                     </Card>
                   ))}
