@@ -7,8 +7,14 @@ import { Badge } from '../components/ui/Badge';
 import { BrandToggle } from '../components/ui/BrandToggle';
 import { AdaptiveSalesFormModal } from '../components/sales/AdaptiveSalesFormModal';
 import { ExplastSalesFormModal } from '../components/sales/ExplastSalesFormModal';
+import { QuotationsView } from '../components/sales/QuotationsView';
+import { DesignView } from '../components/sales/DesignView';
+import { ProductionView } from '../components/sales/ProductionView';
+import { ReportsView } from '../components/sales/ReportsView';
+import { ClientDetailModal } from '../components/sales/ClientDetailModal';
 import { SalesDataService } from '../lib/sales/data-service';
 import { ExplastSalesService } from '../lib/sales/explast-service';
+import { DemoService } from '../lib/sales/demo-service';
 import { Client } from '../types/sales';
 
 import {
@@ -26,7 +32,11 @@ import {
   MoreVertical,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  TrendingUp,
+  RotateCcw,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 export default function App() {
@@ -36,22 +46,34 @@ export default function App() {
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>();
   const [projects, setProjects] = useState<any[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
-  // Refresh projects and clients across both systems
+  // Refresh projects and clients across both systems and demo dataset
   async function refreshData() {
     try {
+      DemoService.initialize();
+      const demoClients = DemoService.getCustomers();
+      const demoProjects = DemoService.getProjects();
+
       const [allPrintboxProjects, allExplastProjects, allClients] = await Promise.all([
         SalesDataService.getAllProjects(),
         ExplastSalesService.getAllExplastProjects(),
         SalesDataService.getClients(),
       ]);
 
-      const map = new Map<string, any>();
-      allPrintboxProjects.forEach(p => map.set(p.id, p));
-      allExplastProjects.forEach(p => map.set(p.id, p));
+      const projectMap = new Map<string, any>();
+      // Layer in demo projects first
+      demoProjects.forEach(p => projectMap.set(p.id, p));
+      allPrintboxProjects.forEach(p => projectMap.set(p.id, p));
+      allExplastProjects.forEach(p => projectMap.set(p.id, p));
 
-      setProjects(Array.from(map.values()));
-      setClients(allClients);
+      const clientMap = new Map<string, any>();
+      // Layer in demo clients
+      demoClients.forEach(c => clientMap.set(c.id, c));
+      allClients.forEach(c => clientMap.set(c.id, c));
+
+      setProjects(Array.from(projectMap.values()));
+      setClients(Array.from(clientMap.values()));
     } catch (e) {
       console.error('Error refreshing app data:', e);
     }
@@ -118,6 +140,9 @@ export default function App() {
             <h1 className="text-sm font-medium text-text-primary">
               {brand} <span className="text-text-muted mx-2">/</span> {brand === 'Explast' ? 'Extrusion, Printing & Converting Operations' : 'Paper Packaging Studio'}
             </h1>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+              <Sparkles className="w-3 h-3" /> Live Demo Mode
+            </span>
           </div>
           
           <div className="flex items-center space-x-6">
@@ -141,9 +166,12 @@ export default function App() {
               onNewProject={() => {
                 setResumeDraftId(undefined);
                 setIsFormOpen(true);
-              }} 
+              }}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenClient={(cId) => setSelectedCustomerId(cId)}
             />
           )}
+
           {activeTab === 'Projects' && (
             <PipelineView 
               brand={brand} 
@@ -154,6 +182,7 @@ export default function App() {
               }} 
             />
           )}
+
           {activeTab === 'Clients' && (
             <ClientsView 
               brand={brand} 
@@ -161,15 +190,55 @@ export default function App() {
               onAddClient={() => {
                 setResumeDraftId(undefined);
                 setIsFormOpen(true);
-              }} 
+              }}
+              onSelectClient={(client) => setSelectedCustomerId(client.id)}
             />
           )}
-          {activeTab === 'Settings' && <SettingsView />}
-          {['Quotations', 'Design', 'Production', 'Reports'].includes(activeTab) && (
-            <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border-strong rounded-lg">
-              <p className="text-text-muted text-sm uppercase tracking-widest">{activeTab} MODULE</p>
-              <p className="text-text-secondary mt-2">This section is currently under construction.</p>
-            </div>
+
+          {activeTab === 'Quotations' && (
+            <QuotationsView
+              brand={brand}
+              onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
+              onNewRequest={() => {
+                setResumeDraftId(undefined);
+                setIsFormOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'Design' && (
+            <DesignView
+              brand={brand}
+              onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
+              onNewRequest={() => {
+                setResumeDraftId(undefined);
+                setIsFormOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'Production' && (
+            <ProductionView
+              brand={brand}
+              onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
+              onNewRequest={() => {
+                setResumeDraftId(undefined);
+                setIsFormOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'Reports' && (
+            <ReportsView brand={brand} />
+          )}
+
+          {activeTab === 'Settings' && (
+            <SettingsView
+              onResetDemo={() => {
+                DemoService.resetDemoData();
+                refreshData();
+              }}
+            />
           )}
         </div>
       </main>
@@ -197,18 +266,43 @@ export default function App() {
           }}
         />
       )}
+
+      {/* 360° CLIENT PROFILE MODAL */}
+      <ClientDetailModal
+        customerId={selectedCustomerId}
+        isOpen={!!selectedCustomerId}
+        onClose={() => setSelectedCustomerId(null)}
+        onNewRequest={() => {
+          setResumeDraftId(undefined);
+          setIsFormOpen(true);
+        }}
+      />
     </div>
   );
 }
 
-function DashboardView({ brand, projects, onNewProject }: { brand: string; projects: any[]; onNewProject: () => void }) {
+function DashboardView({
+  brand,
+  projects,
+  onNewProject,
+  onNavigateTab,
+  onOpenClient,
+}: {
+  brand: string;
+  projects: any[];
+  onNewProject: () => void;
+  onNavigateTab: (tab: string) => void;
+  onOpenClient: (customerId: string) => void;
+}) {
   const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
-  
+  const metrics = DemoService.getAnalyticsMetrics();
+  const activities = DemoService.getActivities();
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Overview</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Executive Overview</h2>
           <h1 className="text-2xl font-medium text-text-primary">
             {brand === 'Explast' ? 'Explast Manufacturing Dashboard' : 'PrintBox Studio Dashboard'}
           </h1>
@@ -218,28 +312,46 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
         </Button>
       </div>
 
+      {/* DYNAMIC TOP KPIS DERIVED FROM ACTUAL DEMO DATA */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        <KPICard label="Active Projects" value={String(brandProjects.length || 24)} trend="+3 this week" accent="brand" />
-        <KPICard label="Open Quotations" value="8" trend="Awaiting approval" accent="purple" />
-        <KPICard 
-          label={brand === 'Explast' ? 'Technical Reviews' : 'Pending Approvals'} 
-          value="5" 
-          trend="Needs attention" 
-          accent="amber" 
+        <KPICard
+          label="Active Sales Requests"
+          value={String(brandProjects.length || 18)}
+          trend="Across 12 customer accounts"
+          accent="brand"
         />
-        <KPICard 
-          label={brand === 'Explast' ? 'In Extrusion/Converting' : 'In Production'} 
-          value="12" 
-          trend="On schedule" 
-          accent="success" 
+        <KPICard
+          label="Total Quoted Pipeline"
+          value={`Rs ${Math.round(metrics.sales.totalQuotationValue / 1000)}k`}
+          trend={`${metrics.sales.totalQuotationsCount} active quotations`}
+          accent="purple"
+        />
+        <KPICard
+          label="Plant Orders in Progress"
+          value={String(metrics.production.activeJobsCount)}
+          trend="Line 1, 2 & 3 operational"
+          accent="success"
+        />
+        <KPICard
+          label="Commercial Win Rate"
+          value={`${metrics.sales.conversionRate}%`}
+          trend="Rs 1.48M signed orders"
+          accent="amber"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* RECENT PROJECTS TABLE */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Recent Projects & Requests</h3>
-            <span className="text-xs text-brand-primary font-medium">{brandProjects.length} Total</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Recent Packaging Requests</h3>
+            <button
+              onClick={() => onNavigateTab('Projects')}
+              className="text-xs text-brand-primary hover:underline font-medium flex items-center gap-1"
+            >
+              View Pipeline Kanban ({brandProjects.length}) →
+            </button>
           </div>
           <Card className="p-0 overflow-hidden">
             <table className="w-full text-sm text-left">
@@ -247,13 +359,13 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
                 <tr>
                   <th className="px-6 py-3 font-medium">Project</th>
                   <th className="px-6 py-3 font-medium">Client</th>
-                  <th className="px-6 py-3 font-medium">Specification / Family</th>
+                  <th className="px-6 py-3 font-medium">Specification / Blend</th>
                   <th className="px-6 py-3 font-medium">Stage</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
-                {brandProjects.slice(0, 5).map((p, idx) => (
+                {brandProjects.slice(0, 6).map((p, idx) => (
                   <tr key={p.id || idx} className="hover:bg-bg-secondary/50 transition-colors group">
                     <td className="px-6 py-4 font-medium text-text-primary">
                       {p.project_name}
@@ -262,7 +374,12 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
                       )}
                     </td>
                     <td className="px-6 py-4 text-text-secondary">
-                      {p.client?.company_name || p.clients?.company_name || 'Client Record'}
+                      <button
+                        onClick={() => p.client_id && onOpenClient(p.client_id)}
+                        className="hover:text-brand-primary hover:underline text-left"
+                      >
+                        {p.client?.company_name || p.clients?.company_name || p.client_name || 'Client Record'}
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-xs text-text-secondary">
                       {p.formulation ? (
@@ -281,7 +398,10 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onNavigateTab('Projects')}
+                        className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
                         <MoreVertical className="w-4 h-4 ml-auto" />
                       </button>
                     </td>
@@ -290,31 +410,61 @@ function DashboardView({ brand, projects, onNewProject }: { brand: string; proje
               </tbody>
             </table>
           </Card>
+
+          {/* CHRONOLOGICAL ACTIVITY LOG */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Live Plant & Commercial Activity</h3>
+            <Card className="p-4 space-y-3">
+              {activities.slice(0, 5).map((act) => (
+                <div key={act.id} className="flex items-start justify-between text-xs pb-2 border-b border-border-subtle/50 last:border-b-0 last:pb-0">
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-text-primary">{act.title}</p>
+                    <p className="text-text-secondary text-[11px]">{act.description}</p>
+                  </div>
+                  <span className="font-mono text-[10px] text-text-muted whitespace-nowrap ml-4">
+                    {act.timestamp}
+                  </span>
+                </div>
+              ))}
+            </Card>
+          </div>
         </div>
 
+        {/* RIGHT COLUMN: NEEDS ATTENTION */}
         <div className="space-y-6">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Needs Attention</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Urgent Operational Items</h3>
           <div className="space-y-4">
             <AttentionCard 
-              title={brand === 'Explast' ? 'Technical Assessment Pending' : 'Quotation Awaiting Approval'}
-              desc={brand === 'Explast' ? 'IPL - LDPE Grade 4 + OXO Sack' : 'Bean Roasters - Eco Coffee Cups'}
+              title="8-Colour Cylinder Feasibility"
+              desc="QuickBite 8-Color Photo Carrier requires stack press repeat verification"
               type="warning"
-              time="2 days ago"
+              time="2 hrs ago"
+              onClick={() => onNavigateTab('Design')}
             />
             <AttentionCard 
-              title={brand === 'Explast' ? 'Cylinder Feasibility Review' : 'Design Feedback Required'}
-              desc={brand === 'Explast' ? 'ABC Restaurant - 8-Colour Poly Bag' : 'ABC Restaurant - Takeaway Boxes'}
+              title="Extruder Line 1 Yellow Run"
+              desc="AgriFertilizer 2,750kg heavy yellow film ready for conversion"
               type="brand"
               time="4 hrs ago"
+              onClick={() => onNavigateTab('Production')}
             />
             <AttentionCard 
-              title="Production Schedule"
-              desc={brand === 'Explast' ? 'Line 2 Extrusion running PP Elpro' : 'Gourmet Burger - Wrapping Paper'}
-              type="error"
-              time="1 hr ago"
+              title="Quotation Pending Acceptance"
+              desc="Le Supermarché du Nord QUO-EXP-2026-0101 (MUR 166,750)"
+              type="brand"
+              time="Yesterday"
+              onClick={() => onNavigateTab('Quotations')}
+            />
+            <AttentionCard 
+              title="Microperforation Tool Check"
+              desc="Needle puncture wheel clearance calibrated on Sealer #1"
+              type="success"
+              time="1 day ago"
+              onClick={() => onNavigateTab('Production')}
             />
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -327,51 +477,63 @@ function KPICard({ label, value, trend, accent }: { label: string; value: string
     amber: 'border-color-warning',
     success: 'border-color-success'
   };
-  
+
   return (
-    <Card className={`border-l-2 ${accentBorders[accent]}`}>
-      <p className="text-[11px] font-bold tracking-wider uppercase text-text-muted">{label}</p>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-3xl font-medium text-text-primary tracking-tight">{value}</span>
-      </div>
-      <p className="mt-1 text-xs text-text-secondary">{trend}</p>
+    <Card className={`border-l-4 ${accentBorders[accent]}`}>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{label}</span>
+      <p className="text-2xl font-medium text-text-primary mt-1">{value}</p>
+      <span className="text-xs text-text-secondary mt-1 block">{trend}</span>
     </Card>
   );
 }
 
-function AttentionCard({ title, desc, type, time }: { title: string; desc: string; type: 'warning'|'error'|'brand'; time: string }) {
+function AttentionCard({ title, desc, type, time, onClick }: { title: string; desc: string; type: 'warning'|'brand'|'error'|'success'; time: string; onClick?: () => void }) {
   const icons = {
-    warning: <AlertCircle className="w-4 h-4 text-color-warning" />,
-    error: <AlertCircle className="w-4 h-4 text-color-error" />,
-    brand: <CheckCircle2 className="w-4 h-4 text-brand-primary" />
+    warning: AlertCircle,
+    brand: Clock,
+    error: AlertCircle,
+    success: CheckCircle2,
   };
+  const Icon = icons[type];
+
+  const colors = {
+    warning: 'text-color-warning bg-color-warning/10 border-color-warning/20',
+    brand: 'text-brand-primary bg-brand-primary-light border-brand-primary/20',
+    error: 'text-color-error bg-color-error/10 border-color-error/20',
+    success: 'text-color-success bg-color-success/10 border-color-success/20',
+  };
+
   return (
-    <div className="bg-bg-card border border-border-subtle p-4 rounded-lg flex items-start gap-3 hover:border-border-strong transition-colors cursor-pointer">
-      <div className="mt-0.5">{icons[type]}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-text-primary truncate">{title}</p>
-        <p className="text-xs text-text-secondary truncate mt-0.5">{desc}</p>
-        <div className="flex items-center gap-1 mt-2 text-[10px] text-text-muted uppercase tracking-wider font-semibold">
-          <Clock className="w-3 h-3" />
-          <span>{time}</span>
+    <Card
+      onClick={onClick}
+      className={`p-4 border transition-colors cursor-pointer group hover:border-brand-primary ${colors[type]}`}
+    >
+      <div className="flex items-start space-x-3">
+        <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between">
+            <h4 className="text-sm font-medium text-text-primary">{title}</h4>
+            <span className="text-[10px] text-text-muted">{time}</span>
+          </div>
+          <p className="text-xs text-text-secondary mt-1">{desc}</p>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function PipelineView({ brand, projects, onNewProject }: { brand: string; projects: any[]; onNewProject: () => void }) {
+  const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
+  
   const stages = [
-    { name: 'DISCOVERY', count: 0, type: 'active' },
-    { name: 'DESIGN', count: 0, type: 'neutral' },
-    { name: 'QUOTATION', count: 0, type: 'neutral' },
-    { name: 'PRODUCTION', count: 0, type: 'completed' },
+    { name: 'Discovery', label: '1. Discovery & Enquiry' },
+    { name: 'Quoting', label: '2. Commercial Quoting' },
+    { name: 'Production Order', label: '3. Production Released' },
+    { name: 'Completed', label: '4. Closed & Completed' },
   ];
 
-  const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
-
   return (
-    <div className="h-full flex flex-col animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Pipeline</h2>
@@ -383,31 +545,26 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-6 min-w-max h-full">
-          {stages.map(stage => {
+      <div className="overflow-x-auto pb-4">
+        <div className="flex gap-6 min-w-[1000px]">
+          {stages.map((stage) => {
             const stageProjects = brandProjects.filter(p => {
-              const st = (p.kanban_stage || p.status || 'Discovery').toUpperCase();
-              return st.includes(stage.name);
+              if (stage.name === 'Discovery') return p.kanban_stage === 'Discovery' || !p.kanban_stage;
+              if (stage.name === 'Quoting') return p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation';
+              if (stage.name === 'Production Order') return p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production';
+              if (stage.name === 'Completed') return p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed';
+              return false;
             });
 
             return (
-              <div key={stage.name} className="w-[320px] flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      stage.type === 'active' ? 'bg-brand-primary' : 
-                      stage.type === 'completed' ? 'bg-brand-primary-light' : 'bg-border-strong'
-                    }`} />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">{stage.name}</h3>
-                  </div>
-                  <span className="text-xs font-medium text-text-muted bg-bg-secondary px-2 py-0.5 rounded">
-                    {stageProjects.length}
-                  </span>
+              <div key={stage.name} className="flex-1 bg-bg-secondary/40 p-4 rounded-xl border border-border-subtle flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">{stage.label}</h3>
+                  <Badge variant="neutral">{stageProjects.length}</Badge>
                 </div>
-                
-                <div className="flex-1 space-y-4">
-                  {stageProjects.map(proj => (
+
+                <div className="space-y-4 flex-1">
+                  {stageProjects.map((proj) => (
                     <Card key={proj.id} className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-border-strong transition-colors cursor-pointer">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
@@ -417,7 +574,7 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
                       </div>
                       <h4 className="text-sm font-medium text-text-primary mb-1">{proj.project_name}</h4>
                       <p className="text-xs text-text-secondary mb-2">
-                        {proj.client?.company_name || proj.clients?.company_name || 'Client'}
+                        {proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client'}
                       </p>
                       
                       {/* Explast specific tags */}
@@ -452,13 +609,23 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
   );
 }
 
-function ClientsView({ brand, clients, onAddClient }: { brand: string; clients: Client[]; onAddClient: () => void }) {
+function ClientsView({
+  brand,
+  clients,
+  onAddClient,
+  onSelectClient,
+}: {
+  brand: string;
+  clients: Client[];
+  onAddClient: () => void;
+  onSelectClient: (client: Client) => void;
+}) {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Directory</h2>
-          <h1 className="text-2xl font-medium text-text-primary">Clients Directory</h1>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Customer Relationship Management</h2>
+          <h1 className="text-2xl font-medium text-text-primary">Client Directory & Accounts</h1>
         </div>
         <Button onClick={onAddClient}><Plus className="w-4 h-4 mr-2" /> Add Client Request</Button>
       </div>
@@ -472,6 +639,7 @@ function ClientsView({ brand, clients, onAddClient }: { brand: string; clients: 
             industry={c.industry || 'Packaging'} 
             phone={c.contact_phone || ''}
             email={c.contact_email || ''}
+            onClick={() => onSelectClient(c)}
           />
         ))}
       </div>
@@ -479,13 +647,30 @@ function ClientsView({ brand, clients, onAddClient }: { brand: string; clients: 
   );
 }
 
-function ClientCard({ name, contact, industry, phone, email }: { name: string; contact: string; industry: string; phone: string; email: string }) {
+function ClientCard({
+  name,
+  contact,
+  industry,
+  phone,
+  email,
+  onClick,
+}: {
+  name: string;
+  contact: string;
+  industry: string;
+  phone: string;
+  email: string;
+  onClick: () => void;
+}) {
   return (
-    <Card className="flex flex-col relative overflow-hidden group">
+    <Card
+      onClick={onClick}
+      className="flex flex-col relative overflow-hidden group cursor-pointer hover:border-brand-primary transition-colors shadow-sm"
+    >
       <div className="absolute top-0 left-0 w-1 h-full bg-brand-primary opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-base font-medium text-text-primary">{name}</h3>
+          <h3 className="text-base font-semibold text-text-primary group-hover:text-brand-primary transition-colors">{name}</h3>
           <p className="text-xs text-text-secondary mt-0.5">{contact}</p>
         </div>
         <div className="w-8 h-8 rounded bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-xs">
@@ -502,18 +687,54 @@ function ClientCard({ name, contact, industry, phone, email }: { name: string; c
           <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Contact</span>
           <span className="text-text-secondary truncate ml-4">{phone || email || 'N/A'}</span>
         </div>
+        <div className="pt-2 flex justify-end">
+          <span className="text-xs font-medium text-brand-primary flex items-center gap-1 group-hover:underline">
+            View 360° Profile <ArrowRight className="w-3 h-3" />
+          </span>
+        </div>
       </div>
     </Card>
   );
 }
 
-function SettingsView() {
+function SettingsView({ onResetDemo }: { onResetDemo: () => void }) {
+  const [resetDone, setResetDone] = useState(false);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300 max-w-3xl">
       <div>
-        <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Configuration</h2>
-        <h1 className="text-2xl font-medium text-text-primary">Settings</h1>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Configuration & ERP Control</h2>
+        <h1 className="text-2xl font-medium text-text-primary">System Settings</h1>
       </div>
+
+      {/* DEMO DATASET CONTROL CARD */}
+      <Card className="p-6 space-y-4 border-l-4 border-l-brand-primary">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">Client Presentation & Demonstration Dataset</h3>
+            <p className="text-xs text-text-secondary mt-1">
+              Active demo data includes 12 customers, 18 manufacturing projects, 12 quotations, 10 prepress designs, and 10 production jobs.
+            </p>
+          </div>
+          <Badge variant="brand">Active Demo Dataset</Badge>
+        </div>
+
+        <div className="pt-2 flex items-center justify-between text-xs border-t border-border-subtle">
+          <span className="text-text-muted">Reset all demonstration records to pristine factory baseline state:</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onResetDemo();
+              setResetDone(true);
+              setTimeout(() => setResetDone(false), 3000);
+            }}
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+            {resetDone ? 'Demo Reset Complete!' : 'Reset Demo Records'}
+          </Button>
+        </div>
+      </Card>
 
       <Card className="space-y-6">
         <div>
