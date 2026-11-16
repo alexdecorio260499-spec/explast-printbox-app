@@ -44,8 +44,14 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>();
-  const [projects, setProjects] = useState<any[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<any[]>(() => {
+    DemoService.initialize();
+    return DemoService.getProjects();
+  });
+  const [clients, setClients] = useState<Client[]>(() => {
+    DemoService.initialize();
+    return DemoService.getCustomers() as unknown as Client[];
+  });
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Refresh projects and clients across both systems and demo dataset
@@ -55,22 +61,34 @@ export default function App() {
       const demoClients = DemoService.getCustomers();
       const demoProjects = DemoService.getProjects();
 
-      const [allPrintboxProjects, allExplastProjects, allClients] = await Promise.all([
-        SalesDataService.getAllProjects(),
-        ExplastSalesService.getAllExplastProjects(),
-        SalesDataService.getClients(),
-      ]);
-
       const projectMap = new Map<string, any>();
-      // Layer in demo projects first
+      // Layer in demo projects first so the view is never empty
       demoProjects.forEach(p => projectMap.set(p.id, p));
-      allPrintboxProjects.forEach(p => projectMap.set(p.id, p));
-      allExplastProjects.forEach(p => projectMap.set(p.id, p));
 
       const clientMap = new Map<string, any>();
-      // Layer in demo clients
+      // Layer in demo clients first
       demoClients.forEach(c => clientMap.set(c.id, c));
-      allClients.forEach(c => clientMap.set(c.id, c));
+
+      // Attempt remote or local fetch safely without blocking
+      try {
+        const [allPrintboxProjects, allExplastProjects, allClients] = await Promise.all([
+          SalesDataService.getAllProjects(),
+          ExplastSalesService.getAllExplastProjects(),
+          SalesDataService.getClients(),
+        ]);
+
+        if (Array.isArray(allPrintboxProjects)) {
+          allPrintboxProjects.forEach(p => projectMap.set(p.id, p));
+        }
+        if (Array.isArray(allExplastProjects)) {
+          allExplastProjects.forEach(p => projectMap.set(p.id, p));
+        }
+        if (Array.isArray(allClients)) {
+          allClients.forEach(c => clientMap.set(c.id, c));
+        }
+      } catch (err) {
+        console.warn('Remote sync skipped or failed, using rich demo dataset:', err);
+      }
 
       setProjects(Array.from(projectMap.values()));
       setClients(Array.from(clientMap.values()));

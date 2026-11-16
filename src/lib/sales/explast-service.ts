@@ -1,7 +1,8 @@
-import { supabase } from '@/lib/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { Client } from '@/types/sales';
 import { ExplastSalesDraft, ExplastSpecificationSnapshot } from '@/types/explast';
 import { SalesDataService } from './data-service';
+import { DEMO_PROJECTS } from './demo-data';
 
 const LOCAL_EXPLAST_DRAFTS_KEY = 'explast_manufacturing_drafts_v1';
 const LOCAL_EXPLAST_PROJECTS_KEY = 'explast_manufacturing_projects_v1';
@@ -30,115 +31,8 @@ function setLocalStore<T>(key: string, value: T): void {
   }
 }
 
-// Initial fallback historical Explast projects
-const DEFAULT_EXPLAST_HISTORICAL_PROJECTS = [
-  {
-    id: 'e0000000-0000-0000-0000-000000000001',
-    client_id: 'a0000000-0000-0000-0000-000000000004', // Industrial Plastics Ltd
-    project_name: 'IPL - LDPE Grade 2 Side Sealing Bags 2025',
-    brand: 'Explast',
-    business_unit: 'Explast',
-    request_type: 'new_standard',
-    status: 'submitted',
-    kanban_stage: 'Production Order',
-    created_at: '2025-10-15T09:00:00Z',
-    updated_at: '2025-10-15T09:00:00Z',
-    material_family: 'LDPE',
-    material_grade: 'Grade 2',
-    formulation: 'Grade 2 + Linear',
-    print_type: 'plain',
-    final_product_type: 'Side Sealing Bag',
-    quantity: 50000,
-    quantity_unit: 'units',
-    extrusion_spec: {
-      roll_width_mm: 350,
-      thickness_micron: 50,
-      material_color: 'Natural Clear',
-    },
-    printing_spec: {
-      is_printed: false,
-      num_colors: 0,
-      artwork_status: 'none',
-      feasibility_review_required: false,
-    },
-    product_spec: {
-      product_type: 'Side Sealing Bag',
-      width_mm: 300,
-      length_mm: 450,
-      thickness_micron: 50,
-      material_color: 'Natural Clear',
-      additional_requirements: 'Food grade virgin material with linear blend',
-    },
-    technical_assessment: {
-      status: 'approved',
-      responsible_person: 'Sunil (Head of Extrusion)',
-      extrusion_feasibility: 'feasible',
-      conversion_feasibility: 'feasible',
-      observations: 'Extrusion run validated on Line 2 with Grade 2 + Linear blend at 50µm.',
-    },
-    quotation_readiness: {
-      is_ready: true,
-      missing_requirements: [],
-      warnings: [],
-      approval_required: false,
-    },
-  },
-  {
-    id: 'e0000000-0000-0000-0000-000000000002',
-    client_id: 'a0000000-0000-0000-0000-000000000001', // ABC Restaurant
-    project_name: 'ABC Restaurant - Printed Sealing Tape Bags',
-    brand: 'Explast',
-    business_unit: 'Explast',
-    request_type: 'new_standard',
-    status: 'submitted',
-    kanban_stage: 'Production Order',
-    created_at: '2025-11-20T14:30:00Z',
-    updated_at: '2025-11-20T14:30:00Z',
-    material_family: 'PP',
-    material_grade: 'Elpro',
-    formulation: 'PP - Elpro',
-    print_type: 'printed',
-    final_product_type: 'Bag with Sealing Tape',
-    quantity: 25000,
-    quantity_unit: 'units',
-    extrusion_spec: {
-      roll_width_mm: 280,
-      thickness_micron: 40,
-      material_color: 'High Gloss Clear',
-    },
-    printing_spec: {
-      is_printed: true,
-      num_colors: 2,
-      artwork_status: 'approved_existing',
-      artwork_file_name: 'abc-poly-bag-v1.ai',
-      feasibility_review_required: false,
-    },
-    product_spec: {
-      product_type: 'Bag with Sealing Tape',
-      width_mm: 250,
-      length_mm: 350,
-      lip_size_mm: 40,
-      tape_type: 'resealable',
-      thickness_micron: 40,
-      material_color: 'High Gloss Clear',
-      tape_requirements: 'Resealable adhesive strip on 40mm lip',
-    },
-    technical_assessment: {
-      status: 'approved',
-      responsible_person: 'Sunil (Head of Extrusion)',
-      extrusion_feasibility: 'feasible',
-      printing_feasibility: 'feasible',
-      conversion_feasibility: 'feasible',
-      observations: 'PP Elpro clarity confirmed. 2-color flexographic printing cylinder prepared.',
-    },
-    quotation_readiness: {
-      is_ready: true,
-      missing_requirements: [],
-      warnings: [],
-      approval_required: false,
-    },
-  },
-];
+// Initial fallback historical Explast projects (backed by full rich demo dataset)
+const DEFAULT_EXPLAST_HISTORICAL_PROJECTS = DEMO_PROJECTS;
 
 export const ExplastSalesService = {
   // --------------------------------------------------------------------------
@@ -156,24 +50,26 @@ export const ExplastSalesService = {
   // CLIENT HISTORY (PREVIOUS EXPLAST CONFIGURATIONS & APPROVED SPECS)
   // --------------------------------------------------------------------------
   async getClientExplastHistory(clientId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          explast_specifications(*),
-          explast_technical_assessments(*),
-          design_assets(*)
-        `)
-        .eq('client_id', clientId)
-        .eq('business_unit', 'Explast')
-        .order('created_at', { ascending: false });
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select(`
+            *,
+            explast_specifications(*),
+            explast_technical_assessments(*),
+            design_assets(*)
+          `)
+          .eq('client_id', clientId)
+          .eq('business_unit', 'Explast')
+          .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        return data;
+        if (!error && data && data.length > 0) {
+          return data;
+        }
+      } catch (e) {
+        console.warn('Remote getClientExplastHistory error, using fallback:', e);
       }
-    } catch (e) {
-      console.warn('Remote getClientExplastHistory error, using fallback:', e);
     }
 
     const localProjects = getLocalStore<any[]>(LOCAL_EXPLAST_PROJECTS_KEY, DEFAULT_EXPLAST_HISTORICAL_PROJECTS);
@@ -356,23 +252,25 @@ export const ExplastSalesService = {
   },
 
   async getAllExplastProjects(): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          clients(*),
-          explast_specifications(*),
-          explast_technical_assessments(*)
-        `)
-        .eq('business_unit', 'Explast')
-        .order('created_at', { ascending: false });
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select(`
+            *,
+            clients(*),
+            explast_specifications(*),
+            explast_technical_assessments(*)
+          `)
+          .eq('business_unit', 'Explast')
+          .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        return data;
+        if (!error && data && data.length > 0) {
+          return data;
+        }
+      } catch (e) {
+        console.warn('Remote getAllExplastProjects error:', e);
       }
-    } catch (e) {
-      console.warn('Remote getAllExplastProjects error:', e);
     }
 
     return getLocalStore<any[]>(LOCAL_EXPLAST_PROJECTS_KEY, DEFAULT_EXPLAST_HISTORICAL_PROJECTS);

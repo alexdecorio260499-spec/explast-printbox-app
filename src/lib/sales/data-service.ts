@@ -1,90 +1,17 @@
-import { supabase } from '@/lib/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { Client, Product, SalesProjectDraft, BrandUnit, ProductFamily } from '@/types/sales';
 import { DEFAULT_CATALOGUE_PRODUCTS } from './product-families';
+import { DEMO_CUSTOMERS, DEMO_PROJECTS } from './demo-data';
 
 const LOCAL_CLIENTS_KEY = 'explast_local_clients_v1';
 const LOCAL_DRAFTS_KEY = 'explast_local_drafts_v1';
 const LOCAL_PROJECTS_KEY = 'explast_local_projects_v1';
 
-// Initial fallback mock clients
-const DEFAULT_CLIENTS: Client[] = [
-  {
-    id: 'a0000000-0000-0000-0000-000000000001',
-    company_name: 'ABC Restaurant',
-    industry: 'Food Service',
-    location_type: 'Local (Mauritius)',
-    contact_name: 'Jean Michel',
-    contact_email: 'jm@abcrestaurant.mu',
-    contact_phone: '+230 5123 4567',
-    status: 'Client',
-    delivery_address: 'Royal Road, Grand Baie',
-  },
-  {
-    id: 'a0000000-0000-0000-0000-000000000002',
-    company_name: 'Bean Roasters Cafe',
-    industry: 'Food Service',
-    location_type: 'Local (Mauritius)',
-    contact_name: 'Sarah Chen',
-    contact_email: 'sarah@beanroasters.mu',
-    contact_phone: '+230 5987 6543',
-    status: 'Client',
-    delivery_address: 'Caudan Waterfront, Port Louis',
-  },
-  {
-    id: 'a0000000-0000-0000-0000-000000000003',
-    company_name: 'Boutique Paris',
-    industry: 'Retail',
-    location_type: 'Local (Mauritius)',
-    contact_name: 'Marie Dupont',
-    contact_email: 'marie@boutiqueparis.mu',
-    contact_phone: '+230 5456 7890',
-    status: 'Client',
-    delivery_address: 'Bagatelle Mall, Moka',
-  },
-  {
-    id: 'a0000000-0000-0000-0000-000000000004',
-    company_name: 'Industrial Plastics Ltd',
-    industry: 'Industrial',
-    location_type: 'Local (Mauritius)',
-    contact_name: 'Kevin Ramgoolam',
-    contact_email: 'kevin@ipl.mu',
-    contact_phone: '+230 5234 5678',
-    status: 'Lead',
-    delivery_address: 'Plaine Lauzun Industrial Zone',
-  },
-];
+// Initial fallback mock clients (backed by full realistic demo customer profiles)
+const DEFAULT_CLIENTS: Client[] = DEMO_CUSTOMERS as unknown as Client[];
 
-// Fallback historical projects for client history review
-const DEFAULT_HISTORICAL_PROJECTS = [
-  {
-    id: 'c0000000-0000-0000-0000-000000000001',
-    client_id: 'a0000000-0000-0000-0000-000000000001',
-    project_name: 'ABC Takeaway Boxes 2025',
-    brand: 'PrintBox' as BrandUnit,
-    request_type: 'new_standard',
-    status: 'In Production',
-    created_at: '2025-11-10T10:00:00Z',
-    items: [
-      {
-        id: 'item-h1',
-        item_type: 'standard',
-        product_id: 'b0000000-0000-0000-0000-000000000002',
-        product_family: 'takeaway_box' as ProductFamily,
-        description: 'Standard Flap-Folded Burger Box',
-        quantity: 5000,
-        quantity_status: 'confirmed',
-        dimensions: { width: 120, length: 120, height: 90, unit: 'mm', dimension_type: 'internal', status: 'confirmed' },
-        material: { material_type: 'Virgin Kraft Board (280 GSM)', food_grade: true, status: 'confirmed' },
-        printing: { print_type: 'existing_artwork', surfaces: 2, artwork_ready: true, status: 'confirmed' },
-      }
-    ],
-    artwork: {
-      status: 'existing_approved',
-      file_name: 'abc-burger-box-artwork-v1.pdf',
-      file_url: 'https://example.com/assets/abc-box.pdf'
-    }
-  }
-];
+// Fallback historical projects (backed by full realistic demo projects)
+const DEFAULT_HISTORICAL_PROJECTS = DEMO_PROJECTS;
 
 const inMemoryCache: Record<string, any> = {};
 
@@ -115,17 +42,19 @@ export const SalesDataService = {
   // CLIENTS
   // --------------------------------------------------------------------------
   async getClients(): Promise<Client[]> {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('company_name');
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .order('company_name');
 
-      if (!error && data && data.length > 0) {
-        return data as Client[];
+        if (!error && data && data.length > 0) {
+          return data as Client[];
+        }
+      } catch (e) {
+        console.warn('Supabase getClients error, using fallback:', e);
       }
-    } catch (e) {
-      console.warn('Supabase getClients error, using fallback:', e);
     }
 
     const localClients = getLocalStore<Client[]>(LOCAL_CLIENTS_KEY, DEFAULT_CLIENTS);
@@ -370,17 +299,19 @@ export const SalesDataService = {
   },
 
   async getAllProjects(): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*, clients(*)')
-        .order('created_at', { ascending: false });
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*, clients(*)')
+          .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        return data;
+        if (!error && data && data.length > 0) {
+          return data;
+        }
+      } catch (e) {
+        console.warn('Remote getAllProjects error:', e);
       }
-    } catch (e) {
-      console.warn('Remote getAllProjects error:', e);
     }
 
     return getLocalStore<any[]>(LOCAL_PROJECTS_KEY, DEFAULT_HISTORICAL_PROJECTS);

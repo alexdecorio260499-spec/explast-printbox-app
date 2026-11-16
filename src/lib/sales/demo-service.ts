@@ -54,7 +54,9 @@ function setStore<T>(key: string, value: T): void {
 export const DemoService = {
   initialize(force = false): void {
     const isInitialized = getStore<boolean>(STORAGE_KEYS.INITIALIZED, false);
-    if (!isInitialized || force) {
+    const existingCustomers = getStore<any[]>(STORAGE_KEYS.CUSTOMERS, []);
+    const isStale = !existingCustomers || existingCustomers.length < DEMO_CUSTOMERS.length;
+    if (!isInitialized || force || isStale) {
       setStore(STORAGE_KEYS.CUSTOMERS, DEMO_CUSTOMERS);
       setStore(STORAGE_KEYS.PROJECTS, DEMO_PROJECTS);
       setStore(STORAGE_KEYS.QUOTATIONS, DEMO_QUOTATIONS);
@@ -82,7 +84,20 @@ export const DemoService = {
   // Projects
   getProjects(): any[] {
     this.initialize();
-    return getStore<any[]>(STORAGE_KEYS.PROJECTS, DEMO_PROJECTS);
+    const rawProjects = getStore<any[]>(STORAGE_KEYS.PROJECTS, DEMO_PROJECTS);
+    const customers = this.getCustomers();
+    const custMap = new Map(customers.map(c => [c.id, c]));
+
+    return rawProjects.map(p => {
+      const cust = custMap.get(p.client_id);
+      const companyName = cust?.company_name || p.client_name || p.client?.company_name || 'Client Record';
+      return {
+        ...p,
+        client_name: companyName,
+        client: cust ? { ...cust, company_name: companyName } : (p.client || { company_name: companyName }),
+        clients: { company_name: companyName },
+      };
+    });
   },
 
   getProjectById(id: string): any | undefined {
