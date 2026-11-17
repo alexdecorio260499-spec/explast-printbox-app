@@ -7,6 +7,8 @@ import { DesignDetailModal } from './DesignDetailModal';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
+import { PageHeader } from '../ui/PageHeader';
+import { FilterToolbar } from '../ui/FilterToolbar';
 import {
   Palette,
   Search,
@@ -69,63 +71,38 @@ export function DesignView({
     <div className="space-y-8 animate-in fade-in duration-300">
       
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">
-            Prepress & Cylinder Engineering
-          </h2>
-          <h1 className="text-2xl font-medium text-text-primary">Design & Artwork Management</h1>
-        </div>
-
-        <div className="flex items-center space-x-3">
+      <PageHeader
+        eyebrow="Prepress & Cylinder Engineering"
+        title="Design & Artwork Management"
+        actions={
           <span className="text-xs text-text-muted bg-bg-secondary px-3 py-1.5 rounded-lg border border-border-subtle flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Automated Prepress from Approved Briefs
+            <Sparkles className="w-3.5 h-3.5 text-brand-primary" /> Automated Prepress from Approved Briefs
           </span>
-        </div>
-      </div>
+        }
+      />
 
       {/* SEARCH & FILTERS */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search design reference, customer, or title..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-bg-card border border-border-subtle rounded-lg pl-9 pr-4 py-2 text-xs text-text-primary focus:outline-none focus:border-brand-primary transition-colors"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
-          {[
-            { id: 'all', label: 'All Projects' },
-            { id: 'in_design', label: 'In Design' },
-            { id: 'awaiting_approval', label: 'Customer Approval' },
-            { id: 'approved', label: 'Approved' },
-            { id: 'ready_for_production', label: 'Cylinders Mounted' },
-          ].map(f => (
-            <button
-              key={f.id}
-              onClick={() => setStatusFilter(f.id)}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap ${
-                statusFilter === f.id
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-bg-card text-text-secondary hover:text-text-primary border border-border-subtle'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilterToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search design reference, customer, or title..."
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        filterOptions={[
+          { id: 'all', label: 'All Projects' },
+          { id: 'in_design', label: 'In Design' },
+          { id: 'awaiting_approval', label: 'Customer Approval' },
+          { id: 'approved', label: 'Approved' },
+          { id: 'ready_for_production', label: 'Cylinders Mounted' },
+        ]}
+      />
 
       {/* DESIGN CARDS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredDesigns.map((d) => (
           <Card
             key={d.id}
-            className="p-5 flex flex-col justify-between hover:border-purple-500 transition-all cursor-pointer group shadow-sm"
+            className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-brand-primary hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
             onClick={() => setSelectedDesign(d)}
           >
             <div>

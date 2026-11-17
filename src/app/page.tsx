@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { KPICard } from '../components/ui/KPICard';
+import { EntityCard } from '../components/ui/EntityCard';
+import { PageHeader } from '../components/ui/PageHeader';
 import { BrandToggle } from '../components/ui/BrandToggle';
 import { AdaptiveSalesFormModal } from '../components/sales/AdaptiveSalesFormModal';
 import { ExplastSalesFormModal } from '../components/sales/ExplastSalesFormModal';
@@ -381,24 +384,17 @@ function DashboardView({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              {isAdmin ? 'Executive Global Overview' : 'Commercial Sales Representative Portal'}
-            </h2>
-            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
-              {isAdmin ? 'Full Company Access' : `Assigned: ${currentUser.name}`}
-            </Badge>
-          </div>
-          <h1 className="text-2xl font-medium text-text-primary">
-            {brand === 'Explast' ? 'Explast Manufacturing Dashboard' : 'PrintBox Studio Dashboard'}
-          </h1>
-        </div>
-        <Button onClick={onNewProject}>
-          <Plus className="w-4 h-4 mr-2" /> New Request
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow={isAdmin ? 'Executive Global Overview' : 'Commercial Sales Representative Portal'}
+        badgeText={isAdmin ? 'Full Company Access' : `Assigned: ${currentUser.name}`}
+        badgeVariant={isAdmin ? 'neutral' : 'brand'}
+        title={brand === 'Explast' ? 'Explast Manufacturing Dashboard' : 'PrintBox Studio Dashboard'}
+        actions={
+          <Button onClick={onNewProject}>
+            <Plus className="w-4 h-4 mr-2" /> New Request
+          </Button>
+        }
+      />
 
       {/* DYNAMIC TOP KPIS DERIVED FROM ACTUAL DEMO DATA */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -581,23 +577,6 @@ function DashboardView({
   );
 }
 
-function KPICard({ label, value, trend, accent }: { label: string; value: string; trend: string; accent: 'brand'|'purple'|'amber'|'success' }) {
-  const accentBorders = {
-    brand: 'border-brand-primary',
-    purple: 'border-brand-secondary',
-    amber: 'border-color-warning',
-    success: 'border-color-success'
-  };
-
-  return (
-    <Card className={`border-l-4 ${accentBorders[accent]}`}>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{label}</span>
-      <p className="text-2xl font-medium text-text-primary mt-1">{value}</p>
-      <span className="text-xs text-text-secondary mt-1 block">{trend}</span>
-    </Card>
-  );
-}
-
 function AttentionCard({ title, desc, type, time, onClick }: { title: string; desc: string; type: 'warning'|'brand'|'error'|'success'; time: string; onClick?: () => void }) {
   const icons = {
     warning: AlertCircle,
@@ -660,24 +639,15 @@ function PipelineView({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              {isAdmin ? 'Enterprise Pipeline Kanban' : 'Assigned Pipeline Portfolio'}
-            </h2>
-            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
-              {isAdmin ? 'All Sales Reps' : `${brandProjects.length} Projects for ${currentUser.name}`}
-            </Badge>
-          </div>
-          <h1 className="text-2xl font-medium text-text-primary">
-            {isAdmin ? `Active ${brand} Projects (Company-wide)` : `My Active ${brand} Projects`}
-          </h1>
-        </div>
-        <div className="flex gap-3">
+      <PageHeader
+        eyebrow={isAdmin ? 'Enterprise Pipeline Kanban' : 'Assigned Pipeline Portfolio'}
+        badgeText={isAdmin ? 'All Sales Reps' : `${brandProjects.length} Projects for ${currentUser.name}`}
+        badgeVariant={isAdmin ? 'neutral' : 'brand'}
+        title={isAdmin ? `Active ${brand} Projects (Company-wide)` : `My Active ${brand} Projects`}
+        actions={
           <Button onClick={onNewProject}><Plus className="w-4 h-4 mr-2" /> New Request</Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-6 min-w-[1000px]">
@@ -699,43 +669,27 @@ function PipelineView({
 
                 <div className="space-y-4 flex-1">
                   {stageProjects.map((proj) => (
-                    <Card
+                    <EntityCard
                       key={proj.id}
+                      category={proj.final_product_type || proj.request_type || 'Packaging'}
+                      title={proj.project_name}
+                      subtitle={proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client Record'}
+                      specPrimary={
+                        proj.formulation ? (
+                          <>
+                            <strong className="text-text-primary font-medium">{proj.material_family}</strong> • {proj.formulation}
+                          </>
+                        ) : 'Standard Packaging'
+                      }
+                      specSecondary={
+                        proj.print_type === 'printed' ? `${proj.printing_spec?.num_colors || 1} Colors` : 'Plain'
+                      }
+                      salespersonName={proj.assigned_salesperson || proj.salesperson || 'Alex L.'}
+                      statusLabel={proj.technical_assessment?.status || proj.request_status || proj.kanban_stage || 'Active'}
+                      statusVariant="brand"
+                      hoverActionText="Open Details →"
                       onClick={() => onOpenProject(proj)}
-                      className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-brand-primary hover:shadow-md transition-all cursor-pointer group"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                          {proj.final_product_type || proj.request_type || 'Packaging'}
-                        </span>
-                        <span className="text-[11px] text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-                          Open Details →
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-medium text-text-primary mb-1 group-hover:text-brand-primary transition-colors">
-                        {proj.project_name}
-                      </h4>
-                      <p className="text-xs text-text-secondary mb-2">
-                        {proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client'}
-                      </p>
-                      
-                      {/* Explast specific tags */}
-                      {proj.formulation && (
-                        <div className="mb-3 text-[10px] text-text-muted bg-bg-secondary px-2 py-1 rounded truncate">
-                          {proj.material_family} • {proj.formulation}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border-subtle/50">
-                        <div className="flex items-center gap-1.5 text-text-muted">
-                          <div className="w-5 h-5 rounded-full bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-[9px]">
-                            {(proj.assigned_salesperson || proj.salesperson || 'AL').substring(0, 2).toUpperCase()}
-                          </div>
-                          <span className="text-[10px] font-medium">{proj.assigned_salesperson || proj.salesperson || 'Sales'}</span>
-                        </div>
-                        <Badge variant="brand">{proj.technical_assessment?.status || proj.request_status || 'Active'}</Badge>
-                      </div>
-                    </Card>
+                    />
                   ))}
 
                   {stageProjects.length === 0 && (
@@ -775,41 +729,40 @@ function ClientsView({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              {isAdmin ? 'Enterprise CRM & Accounts Directory' : 'Assigned Customer Portfolio'}
-            </h2>
-            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
-              {isAdmin ? `${visibleClients.length} Total Accounts` : `${visibleClients.length} Assigned to ${currentUser.name}`}
-            </Badge>
-          </div>
-          <h1 className="text-2xl font-medium text-text-primary">Client Directory & Accounts</h1>
-        </div>
-
-        {/* Requirement 1: Separate Add New Client and Add Client Request */}
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onAddNewClient}>
-            <Building2 className="w-4 h-4 mr-2" /> Add New Client
-          </Button>
-          <Button onClick={onAddClientRequest}>
-            <Plus className="w-4 h-4 mr-2" /> Add Client Request
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={isAdmin ? 'Enterprise CRM & Accounts Directory' : 'Assigned Customer Portfolio'}
+        badgeText={isAdmin ? `${visibleClients.length} Total Accounts` : `${visibleClients.length} Assigned to ${currentUser.name}`}
+        badgeVariant={isAdmin ? 'neutral' : 'brand'}
+        title="Client Directory & Accounts"
+        actions={
+          <>
+            <Button variant="outline" onClick={onAddNewClient}>
+              <Building2 className="w-4 h-4 mr-2" /> Add New Client
+            </Button>
+            <Button onClick={onAddClientRequest}>
+              <Plus className="w-4 h-4 mr-2" /> Add Client Request
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {visibleClients.map(c => (
-          <ClientCard 
-            key={c.id} 
-            name={c.company_name} 
-            contact={c.contact_name || ''} 
-            industry={c.industry || 'Packaging'} 
-            phone={c.contact_phone || ''}
-            email={c.contact_email || ''}
-            salesperson={(c as any).assigned_salesperson || (c as any).salesperson}
-            isAdmin={isAdmin}
+          <EntityCard
+            key={c.id}
+            category={c.industry || 'Packaging'}
+            title={c.company_name}
+            subtitle={c.contact_name ? `${c.contact_name} • ${c.contact_phone || c.contact_email || 'Contact'}` : (c.contact_phone || c.contact_email || 'Direct Account')}
+            specPrimary={
+              <>
+                <strong className="text-text-primary font-medium">{c.location_type || 'Local (Mauritius)'}</strong> • {c.account_tier || 'Client'}
+              </>
+            }
+            specSecondary={`${(c as any).active_projects_count ?? 1} Projects`}
+            salespersonName={(c as any).assigned_salesperson || (c as any).salesperson || 'Alex L.'}
+            statusLabel={c.account_tier || 'Active Account'}
+            statusVariant={c.account_tier === 'Key Account' || c.account_tier === 'VIP' ? 'brand' : 'neutral'}
+            hoverActionText="View 360° Profile →"
             onClick={() => onSelectClient(c)}
           />
         ))}
@@ -818,75 +771,15 @@ function ClientsView({
   );
 }
 
-function ClientCard({
-  name,
-  contact,
-  industry,
-  phone,
-  email,
-  salesperson,
-  isAdmin,
-  onClick,
-}: {
-  name: string;
-  contact: string;
-  industry: string;
-  phone: string;
-  email: string;
-  salesperson?: string;
-  isAdmin?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Card
-      onClick={onClick}
-      className="flex flex-col relative overflow-hidden group cursor-pointer hover:border-brand-primary transition-colors shadow-sm"
-    >
-      <div className="absolute top-0 left-0 w-1 h-full bg-brand-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-base font-semibold text-text-primary group-hover:text-brand-primary transition-colors">{name}</h3>
-          <p className="text-xs text-text-secondary mt-0.5">{contact}</p>
-        </div>
-        <div className="w-8 h-8 rounded bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-xs">
-          {name.charAt(0)}
-        </div>
-      </div>
-      
-      <div className="mt-auto pt-4 border-t border-border-subtle space-y-2">
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Industry</span>
-          <span className="font-medium text-text-primary">{industry}</span>
-        </div>
-        {isAdmin && salesperson && (
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Assigned Rep</span>
-            <span className="font-medium text-brand-primary">{salesperson}</span>
-          </div>
-        )}
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Contact</span>
-          <span className="text-text-secondary truncate ml-4">{phone || email || 'N/A'}</span>
-        </div>
-        <div className="pt-2 flex justify-end">
-          <span className="text-xs font-medium text-brand-primary flex items-center gap-1 group-hover:underline">
-            View 360° Profile <ArrowRight className="w-3 h-3" />
-          </span>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
 function SettingsView({ currentUser, onResetDemo }: { currentUser: AppUser; onResetDemo: () => void }) {
   const [resetDone, setResetDone] = useState(false);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 max-w-3xl">
-      <div>
-        <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Configuration & ERP Control</h2>
-        <h1 className="text-2xl font-medium text-text-primary">System Settings</h1>
-      </div>
+      <PageHeader
+        eyebrow="Configuration & ERP Control"
+        title="System Settings"
+      />
 
       {/* DEMO DATASET CONTROL CARD */}
       <Card className="p-6 space-y-4 border-l-4 border-l-brand-primary">

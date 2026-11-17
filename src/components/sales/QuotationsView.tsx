@@ -7,6 +7,9 @@ import { QuotationDetailModal } from './QuotationDetailModal';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
+import { KPICard } from '../ui/KPICard';
+import { PageHeader } from '../ui/PageHeader';
+import { FilterToolbar } from '../ui/FilterToolbar';
 import {
   FileText,
   Search,
@@ -89,100 +92,61 @@ export function QuotationsView({
     <div className="space-y-8 animate-in fade-in duration-300">
       
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              Commercial ERP Module
-            </h2>
-            {isSalesScoped && (
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-brand-primary-light text-brand-primary">
-                Personal Pipeline ({currentUser?.name})
-              </span>
-            )}
-          </div>
-          <h1 className="text-2xl font-medium text-text-primary mt-1">Quotations & Pricing Governance</h1>
-        </div>
-
-        <div className="flex items-center space-x-3">
+      <PageHeader
+        eyebrow="Commercial ERP Module"
+        badgeText={isSalesScoped ? `Personal Pipeline (${currentUser?.name})` : undefined}
+        badgeVariant="brand"
+        title="Quotations & Pricing Governance"
+        actions={
           <span className="text-xs text-text-muted bg-bg-secondary px-3 py-1.5 rounded-lg border border-border-subtle flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" /> Admin Margin Verification Required
           </span>
-        </div>
-      </div>
+        }
+      />
 
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="p-4 border-l-4 border-l-brand-primary">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Total Quoted Volume</span>
-          <p className="font-mono text-2xl font-bold text-text-primary mt-1">
-            Rs {totalValue.toLocaleString()}
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">{quotations.length} active quotations</span>
-        </Card>
-
-        <Card className="p-4 border-l-4 border-l-color-success">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Accepted Orders</span>
-          <p className="font-mono text-2xl font-bold text-color-success mt-1">
-            Rs {acceptedValue.toLocaleString()}
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">{acceptedQuotes.length} orders signed</span>
-        </Card>
-
-        <Card className="p-4 border-l-4 border-l-color-warning">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Pending Client Decision</span>
-          <p className="font-mono text-2xl font-bold text-color-warning mt-1">
-            Rs {pendingValue.toLocaleString()}
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">{pendingQuotes.length} active in market</span>
-        </Card>
-
-        <Card className="p-4 border-l-4 border-l-purple-500">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Conversion Ratio</span>
-          <p className="font-mono text-2xl font-bold text-purple-600 mt-1">
-            {conversionRate}%
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">Win rate on issued quotes</span>
-        </Card>
+        <KPICard
+          label="Total Quoted Volume"
+          value={`Rs ${totalValue.toLocaleString()}`}
+          trend={`${quotations.length} active quotations`}
+          accent="brand"
+        />
+        <KPICard
+          label="Accepted Orders"
+          value={`Rs ${acceptedValue.toLocaleString()}`}
+          trend={`${acceptedQuotes.length} orders signed`}
+          accent="success"
+        />
+        <KPICard
+          label="Pending Client Decision"
+          value={`Rs ${pendingValue.toLocaleString()}`}
+          trend={`${pendingQuotes.length} active in market`}
+          accent="amber"
+        />
+        <KPICard
+          label="Conversion Ratio"
+          value={`${conversionRate}%`}
+          trend="Win rate on issued quotes"
+          accent="purple"
+        />
       </div>
 
       {/* FILTER & SEARCH TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search quotation #, customer, or project..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-bg-card border border-border-subtle rounded-lg pl-9 pr-4 py-2 text-xs text-text-primary focus:outline-none focus:border-brand-primary transition-colors"
-          />
-        </div>
-
-        {/* Status Filters */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
-          {[
-            { id: 'all', label: 'All Quotations' },
-            { id: 'sent', label: 'Sent' },
-            { id: 'accepted', label: 'Accepted' },
-            { id: 'awaiting_response', label: 'In Negotiation' },
-            { id: 'pending_approval', label: 'Pending Approval' },
-          ].map(f => (
-            <button
-              key={f.id}
-              onClick={() => setStatusFilter(f.id)}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap ${
-                statusFilter === f.id
-                  ? 'bg-brand-primary text-white'
-                  : 'bg-bg-card text-text-secondary hover:text-text-primary border border-border-subtle'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilterToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search quotation #, customer, or project..."
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        filterOptions={[
+          { id: 'all', label: 'All Quotations' },
+          { id: 'sent', label: 'Sent' },
+          { id: 'accepted', label: 'Accepted' },
+          { id: 'awaiting_response', label: 'In Negotiation' },
+          { id: 'pending_approval', label: 'Pending Approval' },
+        ]}
+      />
 
       {/* DATA TABLE */}
       <Card className="p-0 overflow-hidden">

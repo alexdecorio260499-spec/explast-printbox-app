@@ -35,6 +35,10 @@ export interface Client {
   sales_rep_id?: string;
   delivery_address?: string;
   notes?: string;
+  account_tier?: string;
+  credit_terms?: string;
+  active_projects_count?: number;
+  assigned_salesperson?: string;
   created_at?: string;
 }
 

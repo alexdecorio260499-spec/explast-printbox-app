@@ -6,6 +6,8 @@ import { AppUser } from '@/types/demo';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { KPICard } from '../ui/KPICard';
+import { PageHeader } from '../ui/PageHeader';
 import {
   BarChart,
   TrendingUp,
@@ -42,107 +44,82 @@ export function ReportsView({ brand, currentUser }: ReportsViewProps) {
     <div className="space-y-8 animate-in fade-in duration-300">
       
       {/* HEADER & FILTERS */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              {isAdmin ? 'Enterprise Business Intelligence' : 'Sales Representative Portfolio Analytics'}
-            </h2>
-            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
-              {isAdmin ? 'Global Factory View' : `Assigned: ${currentUser?.name || 'Sales Rep'}`}
-            </Badge>
-          </div>
-          <h1 className="text-2xl font-medium text-text-primary">
-            {isAdmin
-              ? 'Operations & Enterprise Commercial Reports'
-              : `${currentUser?.name || 'Sales'} — Performance & Pipeline Reports`}
-          </h1>
-        </div>
+      <PageHeader
+        eyebrow={isAdmin ? 'Enterprise Business Intelligence' : 'Sales Representative Portfolio Analytics'}
+        badgeText={isAdmin ? 'Global Factory View' : `Assigned: ${currentUser?.name || 'Sales Rep'}`}
+        badgeVariant={isAdmin ? 'neutral' : 'brand'}
+        title={isAdmin ? 'Operations & Enterprise Commercial Reports' : `${currentUser?.name || 'Sales'} — Performance & Pipeline Reports`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* Salesperson filter for admin */}
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 bg-bg-card border border-border-subtle rounded-lg px-2.5 py-1">
+                <span className="text-text-muted text-[11px] font-medium">Filter Rep:</span>
+                <select
+                  value={salespersonFilter}
+                  onChange={(e) => setSalespersonFilter(e.target.value)}
+                  className="bg-transparent text-xs text-text-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All Sales Representatives</option>
+                  <option value="Alex L.">Alex L.</option>
+                  <option value="Sunil R.">Sunil R.</option>
+                  <option value="Sarah M.">Sarah M.</option>
+                </select>
+              </div>
+            )}
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {/* Salesperson filter for admin */}
-          {isAdmin && (
-            <div className="flex items-center gap-1.5 bg-bg-card border border-border-subtle rounded-lg px-2.5 py-1">
-              <span className="text-text-muted text-[11px] font-medium">Filter Rep:</span>
-              <select
-                value={salespersonFilter}
-                onChange={(e) => setSalespersonFilter(e.target.value)}
-                className="bg-transparent text-xs text-text-primary focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Sales Representatives</option>
-                <option value="Alex L.">Alex L.</option>
-                <option value="Sunil R.">Sunil R.</option>
-                <option value="Sarah M.">Sarah M.</option>
-              </select>
+            {/* Period selector */}
+            <div className="bg-bg-card border border-border-subtle rounded-lg p-1 flex">
+              {(['30d', '90d', 'ytd'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1 rounded font-medium transition-colors ${
+                    period === p ? 'bg-brand-primary text-white' : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  {p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : 'Year to Date'}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Period selector */}
-          <div className="bg-bg-card border border-border-subtle rounded-lg p-1 flex">
-            {(['30d', '90d', 'ytd'] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1 rounded font-medium transition-colors ${
-                  period === p ? 'bg-brand-primary text-white' : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : 'Year to Date'}
-              </button>
-            ))}
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Download className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+            </Button>
           </div>
-
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Download className="w-3.5 h-3.5 mr-1.5" /> Export PDF
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* TOP KPI BANNER */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="p-5">
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Total Quoted Value</span>
-            <TrendingUp className="w-4 h-4 text-brand-primary" />
-          </div>
-          <p className="font-mono text-2xl font-bold text-text-primary mt-2">
-            Rs {metrics.sales.totalQuotationValue.toLocaleString()}
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">Across {metrics.sales.totalQuotationsCount} formal proposals</span>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Signed Revenue (Won)</span>
-            <DollarSign className="w-4 h-4 text-color-success" />
-          </div>
-          <p className="font-mono text-2xl font-bold text-color-success mt-2">
-            Rs {metrics.sales.acceptedQuotationValue.toLocaleString()}
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">{metrics.sales.acceptedCount} customer purchase orders</span>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Commercial Win Rate</span>
-            <BarChart className="w-4 h-4 text-purple-600" />
-          </div>
-          <p className="font-mono text-2xl font-bold text-purple-600 mt-2">
-            {metrics.sales.conversionRate}%
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">High conversion on repeat formulations</span>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Active Plant Orders</span>
-            <Factory className="w-4 h-4 text-emerald-600" />
-          </div>
-          <p className="font-mono text-2xl font-bold text-emerald-600 mt-2">
-            {metrics.production.activeJobsCount} Runs
-          </p>
-          <span className="text-xs text-text-secondary mt-1 block">{metrics.production.completedJobsCount} runs completed this month</span>
-        </Card>
+        <KPICard
+          label="Total Quoted Value"
+          value={`Rs ${metrics.sales.totalQuotationValue.toLocaleString()}`}
+          trend={`Across ${metrics.sales.totalQuotationsCount} formal proposals`}
+          accent="brand"
+          icon={TrendingUp}
+        />
+        <KPICard
+          label="Signed Revenue (Won)"
+          value={`Rs ${metrics.sales.acceptedQuotationValue.toLocaleString()}`}
+          trend={`${metrics.sales.acceptedCount} customer purchase orders`}
+          accent="success"
+          icon={DollarSign}
+        />
+        <KPICard
+          label="Commercial Win Rate"
+          value={`${metrics.sales.conversionRate}%`}
+          trend="High conversion on repeat formulations"
+          accent="purple"
+          icon={BarChart}
+        />
+        <KPICard
+          label="Active Plant Orders"
+          value={`${metrics.production.activeJobsCount} Runs`}
+          trend={`${metrics.production.completedJobsCount} runs completed this month`}
+          accent="success"
+          icon={Factory}
+        />
       </div>
 
       {/* SECTION 1: MATERIALS & FORMULATION DISTRIBUTION */}

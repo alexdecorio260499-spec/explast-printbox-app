@@ -207,10 +207,10 @@ export function AdaptiveSalesFormModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
         data-brand={draft.brand.toLowerCase()}
-        className="bg-bg-page w-full max-w-5xl rounded-xl border border-border-strong shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-text-primary font-sans"
+        className="relative w-full max-w-5xl max-h-[92vh] bg-bg-card border border-border-subtle rounded-xl shadow-2xl flex flex-col overflow-hidden text-text-primary font-sans"
       >
         {/* TOP BAR / PROGRESS */}
         <div className="bg-bg-card border-b border-border-subtle px-6 py-4 flex flex-col gap-3">

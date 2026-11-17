@@ -88,8 +88,8 @@ export function QuotationDetailModal({
         
         {/* MODAL HEADER */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-bg-secondary/40">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-brand-primary-light text-brand-primary flex items-center justify-center">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 rounded-lg bg-brand-primary text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -113,14 +113,14 @@ export function QuotationDetailModal({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => window.print()}
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
+              className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
               title="Print Quotation"
             >
               <Printer className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
+              className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>

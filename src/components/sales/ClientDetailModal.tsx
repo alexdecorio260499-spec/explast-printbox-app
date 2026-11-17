@@ -60,12 +60,12 @@ export function ClientDetailModal({
         {/* HEADER */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-bg-secondary/40">
           <div className="flex items-center space-x-4">
-            <div className="w-11 h-11 rounded-lg bg-brand-primary text-white flex items-center justify-center font-bold text-base shadow-sm">
+            <div className="w-10 h-10 rounded-lg bg-brand-primary text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
               {customer.company_name.charAt(0)}
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-bold text-text-primary tracking-tight">
+                <h2 className="text-base font-semibold text-text-primary tracking-tight">
                   {customer.company_name}
                 </h2>
                 <Badge variant={customer.account_tier === 'Key Account' || customer.account_tier === 'VIP' ? 'brand' : 'neutral'}>
@@ -78,12 +78,14 @@ export function ClientDetailModal({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onClose}
+              className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* METRICS STRIP */}
@@ -111,10 +113,10 @@ export function ClientDetailModal({
         </div>
 
         {/* TAB NAVIGATION */}
-        <div className="flex border-b border-border-subtle px-6 bg-bg-secondary/10 text-xs">
+        <div className="flex border-b border-border-subtle bg-bg-secondary/20 px-6 gap-2 overflow-x-auto text-xs">
           <button
             onClick={() => setActiveTab('timeline')}
-            className={`py-3 px-4 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 px-3.5 font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeTab === 'timeline'
                 ? 'border-brand-primary text-brand-primary'
                 : 'border-transparent text-text-muted hover:text-text-primary'
@@ -124,7 +126,7 @@ export function ClientDetailModal({
           </button>
           <button
             onClick={() => setActiveTab('projects')}
-            className={`py-3 px-4 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 px-3.5 font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeTab === 'projects'
                 ? 'border-brand-primary text-brand-primary'
                 : 'border-transparent text-text-muted hover:text-text-primary'
@@ -134,7 +136,7 @@ export function ClientDetailModal({
           </button>
           <button
             onClick={() => setActiveTab('quotations')}
-            className={`py-3 px-4 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 px-3.5 font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeTab === 'quotations'
                 ? 'border-brand-primary text-brand-primary'
                 : 'border-transparent text-text-muted hover:text-text-primary'
@@ -144,7 +146,7 @@ export function ClientDetailModal({
           </button>
           <button
             onClick={() => setActiveTab('designs')}
-            className={`py-3 px-4 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 px-3.5 font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeTab === 'designs'
                 ? 'border-brand-primary text-brand-primary'
                 : 'border-transparent text-text-muted hover:text-text-primary'
@@ -154,7 +156,7 @@ export function ClientDetailModal({
           </button>
           <button
             onClick={() => setActiveTab('production')}
-            className={`py-3 px-4 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 px-3.5 font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeTab === 'production'
                 ? 'border-brand-primary text-brand-primary'
                 : 'border-transparent text-text-muted hover:text-text-primary'
