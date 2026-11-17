@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DemoDesignProject, DemoDesignStatus } from '@/types/demo';
+import { DemoDesignProject, DemoDesignStatus, AppUser } from '@/types/demo';
 import { DemoService } from '@/lib/sales/demo-service';
 import { DesignDetailModal } from './DesignDetailModal';
 import { Button } from '../ui/Button';
@@ -10,7 +10,6 @@ import { Badge } from '../ui/Badge';
 import {
   Palette,
   Search,
-  Plus,
   Sliders,
   Layers,
   Sparkles,
@@ -20,14 +19,15 @@ import {
 
 interface DesignViewProps {
   brand: string;
+  currentUser?: AppUser;
   onNavigateToCustomer?: (customerId: string) => void;
   onNewRequest?: () => void;
 }
 
 export function DesignView({
   brand,
+  currentUser,
   onNavigateToCustomer,
-  onNewRequest,
 }: DesignViewProps) {
   const [designs, setDesigns] = useState<DemoDesignProject[]>(() => DemoService.getDesignProjects());
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,11 +78,9 @@ export function DesignView({
         </div>
 
         <div className="flex items-center space-x-3">
-          {onNewRequest && (
-            <Button onClick={onNewRequest}>
-              <Plus className="w-4 h-4 mr-2" /> New Design Project
-            </Button>
-          )}
+          <span className="text-xs text-text-muted bg-bg-secondary px-3 py-1.5 rounded-lg border border-border-subtle flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Automated Prepress from Approved Briefs
+          </span>
         </div>
       </div>
 

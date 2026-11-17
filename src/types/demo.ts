@@ -7,9 +7,56 @@ import {
   ExplastFinalProductType,
 } from './explast';
 
+export type UserRole = 'sales' | 'admin';
+
+export interface AppUser {
+  id: string;
+  name: string;
+  role: UserRole;
+  title: string;
+  avatar: string;
+  email: string;
+}
+
+export const APP_USERS: AppUser[] = [
+  {
+    id: 'usr-alex',
+    name: 'Alex L.',
+    role: 'sales',
+    title: 'Senior Technical Sales Rep',
+    avatar: 'AL',
+    email: 'alex@explast.mu',
+  },
+  {
+    id: 'usr-sunil',
+    name: 'Sunil R.',
+    role: 'sales',
+    title: 'Key Accounts Commercial Rep',
+    avatar: 'SR',
+    email: 'sunil@explast.mu',
+  },
+  {
+    id: 'usr-sarah',
+    name: 'Sarah M.',
+    role: 'sales',
+    title: 'Packaging Solutions Specialist',
+    avatar: 'SM',
+    email: 'sarah@explast.mu',
+  },
+  {
+    id: 'usr-admin',
+    name: 'Administrator',
+    role: 'admin',
+    title: 'Managing Director & Plant Oversight',
+    avatar: 'AD',
+    email: 'admin@explast.mu',
+  },
+];
+
 export type DemoQuotationStatus =
   | 'draft'
   | 'pending_approval'
+  | 'admin_approved'
   | 'sent'
   | 'awaiting_response'
   | 'accepted'
@@ -56,6 +103,12 @@ export interface DemoQuotation {
   tax_rate_percent: number; // 15% VAT
   tax_mur: number;
   total_mur: number;
+  margin_percent?: number;
+  admin_approval?: {
+    approved_by: string;
+    approved_at: string;
+    notes?: string;
+  };
   payment_terms: string;
   delivery_terms: string;
   estimated_lead_time_days: number;

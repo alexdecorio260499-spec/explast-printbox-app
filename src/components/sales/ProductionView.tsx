@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DemoProductionJob, DemoProductionStage } from '@/types/demo';
+import { DemoProductionJob, DemoProductionStage, AppUser } from '@/types/demo';
 import { DemoService } from '@/lib/sales/demo-service';
 import { ProductionDetailModal } from './ProductionDetailModal';
 import { Button } from '../ui/Button';
@@ -10,7 +10,6 @@ import { Badge } from '../ui/Badge';
 import {
   Factory,
   Search,
-  Plus,
   Layers,
   Sparkles,
   CheckCircle2,
@@ -22,14 +21,14 @@ import {
 
 interface ProductionViewProps {
   brand: string;
+  currentUser?: AppUser;
   onNavigateToCustomer?: (customerId: string) => void;
-  onNewRequest?: () => void;
 }
 
 export function ProductionView({
   brand,
+  currentUser,
   onNavigateToCustomer,
-  onNewRequest,
 }: ProductionViewProps) {
   const [jobs, setJobs] = useState<DemoProductionJob[]>(() => DemoService.getProductionJobs());
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,11 +89,9 @@ export function ProductionView({
         </div>
 
         <div className="flex items-center space-x-3">
-          {onNewRequest && (
-            <Button onClick={onNewRequest}>
-              <Plus className="w-4 h-4 mr-2" /> Log Production Order
-            </Button>
-          )}
+          <span className="text-xs text-text-muted bg-bg-secondary px-3 py-1.5 rounded-lg border border-border-subtle flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-color-success" /> Auto-Dispatched via Accepted Client Quotations
+          </span>
         </div>
       </div>
 

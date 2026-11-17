@@ -81,6 +81,60 @@ export const DemoService = {
     return this.getCustomers().find(c => c.id === id);
   },
 
+  addCustomer(customerData: Partial<DemoCustomerProfile>): DemoCustomerProfile {
+    this.initialize();
+    const existing = this.getCustomers();
+    const newId = `DEMO-CLI-${String(existing.length + 1).padStart(3, '0')}`;
+    const now = new Date().toISOString().substring(0, 10);
+    const newCustomer: DemoCustomerProfile = {
+      id: newId,
+      company_name: customerData.company_name || 'New Customer',
+      industry: customerData.industry || 'Industrial',
+      location_type: (customerData.location_type as any) || 'Local (Mauritius)',
+      contact_name: customerData.contact_name || '',
+      contact_email: customerData.contact_email || '',
+      contact_phone: customerData.contact_phone || '',
+      delivery_address: customerData.delivery_address || '',
+      brn_number: customerData.brn_number || 'C2026' + Math.floor(1000 + Math.random() * 9000),
+      vat_number: customerData.vat_number || 'VAT' + Math.floor(10000000 + Math.random() * 90000000),
+      status: customerData.status || 'Client',
+      account_tier: customerData.account_tier || 'Regular',
+      assigned_salesperson: customerData.assigned_salesperson || 'Alex L.',
+      credit_terms: customerData.credit_terms || '30 Days End of Month',
+      total_revenue_mur: 0,
+      active_projects_count: 0,
+      customer_since: now,
+      notes: customerData.notes || '',
+      is_demo: true,
+      relationship_timeline: [
+        {
+          date: now,
+          milestone: 'Direct Client Registration',
+          details: `Directly registered into accounts directory by ${customerData.assigned_salesperson || 'Sales Representative'}.`,
+        },
+      ],
+    };
+
+    const updated = [newCustomer, ...existing];
+    setStore(STORAGE_KEYS.CUSTOMERS, updated);
+
+    // Add activity event
+    const activities = this.getActivities();
+    const newAct: DemoActivityEvent = {
+      id: `DEMO-ACT-${Date.now()}`,
+      timestamp: 'Just now',
+      event_type: 'customer',
+      title: `Client Account Created: ${newCustomer.company_name}`,
+      description: `Added to CRM directory by ${newCustomer.assigned_salesperson}.`,
+      actor: newCustomer.assigned_salesperson,
+      entity_id: newId,
+      severity: 'success',
+    };
+    setStore(STORAGE_KEYS.ACTIVITIES, [newAct, ...activities]);
+
+    return newCustomer;
+  },
+
   // Projects
   getProjects(): any[] {
     this.initialize();
@@ -91,9 +145,12 @@ export const DemoService = {
     return rawProjects.map(p => {
       const cust = custMap.get(p.client_id);
       const companyName = cust?.company_name || p.client_name || p.client?.company_name || 'Client Record';
+      const assignedRep = cust?.assigned_salesperson || p.assigned_salesperson || p.salesperson || 'Alex L.';
       return {
         ...p,
         client_name: companyName,
+        assigned_salesperson: assignedRep,
+        salesperson: assignedRep,
         client: cust ? { ...cust, company_name: companyName } : (p.client || { company_name: companyName }),
         clients: { company_name: companyName },
       };
@@ -114,28 +171,135 @@ export const DemoService = {
     return this.getQuotations().find(q => q.id === id);
   },
 
-  updateQuotationStatus(id: string, newStatus: DemoQuotationStatus): void {
+  updateQuotationStatus(
+    id: string,
+    newStatus: DemoQuotationStatus,
+    actor = 'Alex L.',
+    notes = ''
+  ): void {
     const quotes = this.getQuotations();
+    let targetQuote: DemoQuotation | undefined;
+
     const updated = quotes.map(q => {
       if (q.id === id) {
+        targetQuote = q;
         const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
-        return {
+        const actionLabel =
+          newStatus === 'admin_approved'
+            ? 'Pricing & Margins Approved by Management'
+            : newStatus === 'pending_approval'
+            ? 'Submitted for Internal Admin Approval'
+            : newStatus === 'sent'
+            ? 'Official Quotation Sent to Client'
+            : newStatus === 'accepted'
+            ? 'Quotation Accepted by Client (Order Confirmed)'
+            : newStatus === 'revised'
+            ? 'Pricing Revision Requested'
+            : `Status Changed to ${newStatus.replace('_', ' ').toUpperCase()}`;
+
+        const updatedQuote: DemoQuotation = {
           ...q,
           status: newStatus,
+          admin_approval:
+            newStatus === 'admin_approved'
+              ? {
+                  approved_by: actor,
+                  approved_at: now,
+                  notes: notes || 'Pricing structure and target profit margins verified.',
+                }
+              : q.admin_approval,
           history: [
             {
               date: now,
-              action: `Status Changed to ${newStatus.replace('_', ' ').toUpperCase()}`,
-              actor: 'Demo User (Alex L.)',
-              notes: 'Updated interactively in client demonstration.',
+              action: actionLabel,
+              actor: actor,
+              notes: notes || (newStatus === 'accepted' ? 'Order confirmed by client. Automated production release triggered.' : undefined),
             },
             ...q.history,
           ],
         };
+        return updatedQuote;
       }
       return q;
     });
+
     setStore(STORAGE_KEYS.QUOTATIONS, updated);
+
+    // Automated Production Release on Client Acceptance (Requirement 2 & 6)
+    if (newStatus === 'accepted' && targetQuote) {
+      const q = targetQuote;
+      const existingJobs = this.getProductionJobs();
+      const alreadyReleased = existingJobs.some(
+        j => j.quotation_id === q.id || (j.project_id === q.project_id && j.is_demo)
+      );
+
+      if (!alreadyReleased) {
+        const firstItem = q.items[0];
+        const newJob: DemoProductionJob = {
+          id: `DEMO-PROD-${Date.now()}`,
+          job_reference: `JOB-EXP-2026-${Math.floor(100 + Math.random() * 900)}`,
+          project_id: q.project_id,
+          project_name: q.project_name,
+          quotation_id: q.id,
+          client_id: q.client_id,
+          client_name: q.client_name,
+          product_type: firstItem?.final_product_type || 'Side Sealing Bag',
+          material_family: firstItem?.material_family || 'LDPE',
+          material_grade: firstItem?.material_grade,
+          formulation: firstItem?.formulation || 'Grade 2 + Linear',
+          dimensions_summary: firstItem?.dimensions_summary || 'Standard Dimensions',
+          thickness_micron: firstItem?.thickness_micron || 40,
+          is_printed: firstItem?.print_type === 'printed',
+          num_colors: firstItem?.num_colors || 0,
+          required_quantity: firstItem?.quantity || 50000,
+          quantity_unit: firstItem?.quantity_unit || 'units',
+          produced_quantity: 0,
+          assigned_team: 'Extrusion Line 1 (Sunil / Team A)',
+          extrusion_line: 'Extruder #1 (Windmöller & Hölscher)',
+          printing_press: firstItem?.print_type === 'printed' ? 'Flexo 8-Color Stack Press' : undefined,
+          conversion_line: 'Automatic Side Sealer Line 1',
+          planned_start_date: new Date().toISOString().substring(0, 10),
+          target_completion_date: new Date(Date.now() + 14 * 86400000).toISOString().substring(0, 10),
+          current_stage: 'scheduled',
+          progress_percent: 5,
+          priority: 'normal',
+          qc_status: 'pending',
+          is_demo: true,
+          stages_completed: ['scheduled'],
+          internal_notes: `Auto-dispatched immediately upon client acceptance of Quotation ${q.quotation_number}.`,
+        };
+
+        setStore(STORAGE_KEYS.PRODUCTION, [newJob, ...existingJobs]);
+      }
+
+      // Update linked project's kanban stage to 'Production Order'
+      const rawProjects = getStore<any[]>(STORAGE_KEYS.PROJECTS, DEMO_PROJECTS);
+      const updatedProjects = rawProjects.map(proj => {
+        if (proj.id === q.project_id) {
+          return {
+            ...proj,
+            kanban_stage: 'Production Order',
+            request_status: 'approved',
+          };
+        }
+        return proj;
+      });
+      setStore(STORAGE_KEYS.PROJECTS, updatedProjects);
+
+      // Add timeline activity
+      const activities = this.getActivities();
+      const orderAct: DemoActivityEvent = {
+        id: `DEMO-ACT-${Date.now()}`,
+        timestamp: 'Just now',
+        event_type: 'production',
+        title: `Auto Production Dispatch: ${q.project_name}`,
+        description: `Quotation ${q.quotation_number} accepted by client. Production order auto-scheduled on plant floor.`,
+        actor: actor,
+        entity_id: q.id,
+        severity: 'success',
+      };
+      setStore(STORAGE_KEYS.ACTIVITIES, [orderAct, ...activities]);
+    }
   },
 
   // Design Projects
@@ -223,12 +387,26 @@ export const DemoService = {
     };
   },
 
-  // Comprehensive Analytics Engine
-  getAnalyticsMetrics() {
-    const projects = this.getProjects();
-    const quotations = this.getQuotations();
-    const customers = this.getCustomers();
-    const productionJobs = this.getProductionJobs();
+  // Comprehensive Analytics Engine with Role & Salesperson Scoping
+  getAnalyticsMetrics(salespersonName?: string) {
+    const isScoped = Boolean(salespersonName && salespersonName !== 'all');
+    let projects = this.getProjects();
+    let quotations = this.getQuotations();
+    let customers = this.getCustomers();
+    let productionJobs = this.getProductionJobs();
+
+    if (isScoped && salespersonName) {
+      customers = customers.filter(c => c.assigned_salesperson === salespersonName);
+      projects = projects.filter(
+        p => p.assigned_salesperson === salespersonName || p.salesperson === salespersonName
+      );
+      quotations = quotations.filter(q => q.salesperson === salespersonName);
+      productionJobs = productionJobs.filter(
+        j =>
+          projects.some(p => p.id === j.project_id) ||
+          quotations.some(q => q.id === j.quotation_id)
+      );
+    }
 
     // 1. Sales Performance
     const totalRequests = projects.length;
@@ -237,12 +415,14 @@ export const DemoService = {
     const acceptedQuotations = quotations.filter(q => q.status === 'accepted');
     const acceptedQuotationValue = acceptedQuotations.reduce((acc, q) => acc + q.total_mur, 0);
     const conversionRate = totalQuotationsCount > 0 ? (acceptedQuotations.length / totalQuotationsCount) * 100 : 0;
-    const pendingQuotations = quotations.filter(q => q.status === 'sent' || q.status === 'awaiting_response' || q.status === 'pending_approval');
+    const pendingQuotations = quotations.filter(
+      q => q.status === 'sent' || q.status === 'awaiting_response' || q.status === 'pending_approval' || q.status === 'admin_approved'
+    );
     const pendingQuotationValue = pendingQuotations.reduce((acc, q) => acc + q.total_mur, 0);
 
     // 2. Customer Breakdown
     const totalCustomers = customers.length;
-    const activeCustomers = customers.filter(c => c.active_projects_count > 0).length;
+    const activeCustomers = customers.filter(c => c.active_projects_count > 0 || c.total_revenue_mur > 0).length;
     const industryCounts: Record<string, number> = {};
     customers.forEach(c => {
       const ind = c.industry || 'Other';
@@ -310,7 +490,8 @@ export const DemoService = {
       'Sarah M.': { requests: 0, quotes: 0, acceptedValue: 0 },
     };
 
-    quotations.forEach(q => {
+    const allQuotesForComparison = this.getQuotations();
+    allQuotesForComparison.forEach(q => {
       const rep = q.salesperson || 'Alex L.';
       if (!salesReps[rep]) salesReps[rep] = { requests: 0, quotes: 0, acceptedValue: 0 };
       salesReps[rep].quotes++;
@@ -320,6 +501,8 @@ export const DemoService = {
     });
 
     return {
+      isScoped,
+      scopedSalesperson: salespersonName,
       sales: {
         totalRequests,
         totalQuotationsCount,

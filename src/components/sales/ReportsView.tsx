@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { DemoService } from '@/lib/sales/demo-service';
+import { AppUser } from '@/types/demo';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -16,14 +17,26 @@ import {
   Download,
   DollarSign,
   PieChart,
+  Shield,
+  UserCheck,
 } from 'lucide-react';
 
-export function ReportsView({ brand }: { brand: string }) {
+interface ReportsViewProps {
+  brand: string;
+  currentUser?: AppUser;
+}
+
+export function ReportsView({ brand, currentUser }: ReportsViewProps) {
   const [period, setPeriod] = useState<'30d' | '90d' | 'ytd'>('ytd');
   const [materialFilter, setMaterialFilter] = useState<string>('all');
   const [salespersonFilter, setSalespersonFilter] = useState<string>('all');
 
-  const metrics = DemoService.getAnalyticsMetrics();
+  const isAdmin = currentUser?.role === 'admin';
+  const effectiveSalesperson = isAdmin
+    ? (salespersonFilter === 'all' ? undefined : salespersonFilter)
+    : currentUser?.name;
+
+  const metrics = DemoService.getAnalyticsMetrics(effectiveSalesperson);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -31,13 +44,39 @@ export function ReportsView({ brand }: { brand: string }) {
       {/* HEADER & FILTERS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">
-            Business Intelligence & Executive Analytics
-          </h2>
-          <h1 className="text-2xl font-medium text-text-primary">Operations & Commercial Reports</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+              {isAdmin ? 'Enterprise Business Intelligence' : 'Sales Representative Portfolio Analytics'}
+            </h2>
+            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
+              {isAdmin ? 'Global Factory View' : `Assigned: ${currentUser?.name || 'Sales Rep'}`}
+            </Badge>
+          </div>
+          <h1 className="text-2xl font-medium text-text-primary">
+            {isAdmin
+              ? 'Operations & Enterprise Commercial Reports'
+              : `${currentUser?.name || 'Sales'} — Performance & Pipeline Reports`}
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          {/* Salesperson filter for admin */}
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 bg-bg-card border border-border-subtle rounded-lg px-2.5 py-1">
+              <span className="text-text-muted text-[11px] font-medium">Filter Rep:</span>
+              <select
+                value={salespersonFilter}
+                onChange={(e) => setSalespersonFilter(e.target.value)}
+                className="bg-transparent text-xs text-text-primary focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Sales Representatives</option>
+                <option value="Alex L.">Alex L.</option>
+                <option value="Sunil R.">Sunil R.</option>
+                <option value="Sarah M.">Sarah M.</option>
+              </select>
+            </div>
+          )}
+
           {/* Period selector */}
           <div className="bg-bg-card border border-border-subtle rounded-lg p-1 flex">
             {(['30d', '90d', 'ytd'] as const).map((p) => (
@@ -223,39 +262,81 @@ export function ReportsView({ brand }: { brand: string }) {
           </div>
         </Card>
 
-        {/* Sales Representatives Performance */}
-        <Card className="p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary">Commercial Representative Performance</h3>
-              <p className="text-xs text-text-secondary">Quotations issued and won volume</p>
+        {/* Sales Representatives Performance or Personal Benchmarks */}
+        {isAdmin ? (
+          <Card className="p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">Commercial Representative Comparison</h3>
+                <p className="text-xs text-text-secondary">Quotations issued and won volume across all sales reps</p>
+              </div>
+              <TrendingUp className="w-4 h-4 text-color-success" />
             </div>
-            <TrendingUp className="w-4 h-4 text-color-success" />
-          </div>
 
-          <div className="space-y-3 pt-2">
-            {Object.entries(metrics.salesReps).map(([rep, data]) => (
-              <div key={rep} className="p-3 bg-bg-secondary/30 rounded-lg border border-border-subtle flex items-center justify-between text-xs">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold text-xs">
-                    {rep.substring(0, 2)}
+            <div className="space-y-3 pt-2">
+              {Object.entries(metrics.salesReps).map(([rep, data]) => (
+                <div key={rep} className="p-3 bg-bg-secondary/30 rounded-lg border border-border-subtle flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold text-xs">
+                      {rep.substring(0, 2)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-text-primary">{rep}</p>
+                      <p className="text-text-muted text-[11px]">{data.quotes} Quotations Issued</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-text-primary">{rep}</p>
-                    <p className="text-text-muted text-[11px]">{data.quotes} Quotations Issued</p>
+
+                  <div className="text-right">
+                    <span className="text-[10px] text-text-muted uppercase">Won Revenue</span>
+                    <p className="font-mono font-bold text-color-success">
+                      Rs {data.acceptedValue.toLocaleString()}
+                    </p>
                   </div>
                 </div>
+              ))}
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">Personal Commercial Performance</h3>
+                <p className="text-xs text-text-secondary">Metrics scoped to {currentUser?.name || 'My Portfolio'}</p>
+              </div>
+              <TrendingUp className="w-4 h-4 text-color-success" />
+            </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] text-text-muted uppercase">Won Revenue</span>
-                  <p className="font-mono font-bold text-color-success">
-                    Rs {data.acceptedValue.toLocaleString()}
+            <div className="space-y-3 pt-2 text-xs">
+              <div className="p-4 bg-brand-primary/10 rounded-lg border border-brand-primary/20 flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] text-text-muted uppercase font-bold tracking-wider">Won Revenue Signed</span>
+                  <p className="font-mono text-2xl font-bold text-brand-primary mt-0.5">
+                    Rs {metrics.sales.acceptedQuotationValue.toLocaleString()}
                   </p>
                 </div>
+                <Badge variant="brand">{metrics.sales.conversionRate}% Win Rate</Badge>
               </div>
-            ))}
-          </div>
-        </Card>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="p-3 bg-bg-secondary/40 rounded-lg border border-border-subtle">
+                  <span className="text-[10px] text-text-muted uppercase">Total Quotes Issued</span>
+                  <p className="font-mono text-lg font-bold text-text-primary mt-1">{metrics.sales.totalQuotationsCount}</p>
+                  <span className="text-[10px] text-text-secondary">Commercial proposals</span>
+                </div>
+                <div className="p-3 bg-bg-secondary/40 rounded-lg border border-border-subtle">
+                  <span className="text-[10px] text-text-muted uppercase">Pending Pipeline</span>
+                  <p className="font-mono text-lg font-bold text-color-warning mt-1">Rs {metrics.sales.pendingQuotationValue.toLocaleString()}</p>
+                  <span className="text-[10px] text-text-secondary">{metrics.sales.pendingCount} awaiting approval</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-bg-secondary/20 rounded-lg border border-border-subtle flex items-center justify-between text-text-secondary text-[11px]">
+                <span>Active Assigned Customer Accounts</span>
+                <span className="font-mono font-bold text-text-primary">{metrics.customers.totalCustomers} Accounts</span>
+              </div>
+            </div>
+          </Card>
+        )}
 
       </div>
 

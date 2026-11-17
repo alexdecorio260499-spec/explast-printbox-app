@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DemoQuotation, DemoQuotationStatus } from '@/types/demo';
+import { DemoQuotation, DemoQuotationStatus, AppUser } from '@/types/demo';
 import { DemoService } from '@/lib/sales/demo-service';
 import { QuotationDetailModal } from './QuotationDetailModal';
 import { Button } from '../ui/Button';
@@ -11,32 +11,33 @@ import {
   FileText,
   Search,
   Filter,
-  Plus,
   Eye,
   CheckCircle,
   Clock,
   Sparkles,
   Info,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface QuotationsViewProps {
   brand: string;
+  currentUser?: AppUser;
   onNavigateToCustomer?: (customerId: string) => void;
   onNewRequest?: () => void;
 }
 
 export function QuotationsView({
   brand,
+  currentUser,
   onNavigateToCustomer,
-  onNewRequest,
 }: QuotationsViewProps) {
   const [quotations, setQuotations] = useState<DemoQuotation[]>(() => DemoService.getQuotations());
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedQuote, setSelectedQuote] = useState<DemoQuotation | null>(null);
 
-  function handleStatusChange(id: string, newStatus: DemoQuotationStatus) {
-    DemoService.updateQuotationStatus(id, newStatus);
+  function handleStatusChange(id: string, newStatus: DemoQuotationStatus, actor?: string, notes?: string) {
+    DemoService.updateQuotationStatus(id, newStatus, actor || currentUser?.name || 'Alex L.', notes);
     const updated = DemoService.getQuotations();
     setQuotations(updated);
     if (selectedQuote && selectedQuote.id === id) {
@@ -44,16 +45,24 @@ export function QuotationsView({
     }
   }
 
+  // Role scoping: sales rep only sees their own quotes; admin sees all
+  const isSalesScoped = currentUser?.role === 'sales';
+  const visibleQuotations = isSalesScoped
+    ? quotations.filter(q => q.salesperson === currentUser?.name)
+    : quotations;
+
   // Calculate live summary stats from actual quotations
-  const totalValue = quotations.reduce((acc, q) => acc + q.total_mur, 0);
-  const acceptedQuotes = quotations.filter(q => q.status === 'accepted');
+  const totalValue = visibleQuotations.reduce((acc, q) => acc + q.total_mur, 0);
+  const acceptedQuotes = visibleQuotations.filter(q => q.status === 'accepted');
   const acceptedValue = acceptedQuotes.reduce((acc, q) => acc + q.total_mur, 0);
-  const pendingQuotes = quotations.filter(q => q.status === 'sent' || q.status === 'awaiting_response' || q.status === 'pending_approval');
+  const pendingQuotes = visibleQuotations.filter(
+    q => q.status === 'sent' || q.status === 'awaiting_response' || q.status === 'pending_approval' || q.status === 'admin_approved'
+  );
   const pendingValue = pendingQuotes.reduce((acc, q) => acc + q.total_mur, 0);
-  const conversionRate = quotations.length > 0 ? Math.round((acceptedQuotes.length / quotations.length) * 100) : 0;
+  const conversionRate = visibleQuotations.length > 0 ? Math.round((acceptedQuotes.length / visibleQuotations.length) * 100) : 0;
 
   // Filtered list
-  const filteredQuotations = quotations.filter(q => {
+  const filteredQuotations = visibleQuotations.filter(q => {
     const matchesSearch =
       q.quotation_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       q.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -67,6 +76,7 @@ export function QuotationsView({
   const statusBadgeVariants: Record<DemoQuotationStatus, 'brand' | 'success' | 'warning' | 'error' | 'neutral'> = {
     draft: 'neutral',
     pending_approval: 'warning',
+    admin_approved: 'brand',
     sent: 'brand',
     awaiting_response: 'warning',
     accepted: 'success',
@@ -81,18 +91,23 @@ export function QuotationsView({
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">
-            Commercial ERP Module
-          </h2>
-          <h1 className="text-2xl font-medium text-text-primary">Quotations & Pricing</h1>
+          <div className="flex items-center space-x-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+              Commercial ERP Module
+            </h2>
+            {isSalesScoped && (
+              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-brand-primary-light text-brand-primary">
+                Personal Pipeline ({currentUser?.name})
+              </span>
+            )}
+          </div>
+          <h1 className="text-2xl font-medium text-text-primary mt-1">Quotations & Pricing Governance</h1>
         </div>
 
         <div className="flex items-center space-x-3">
-          {onNewRequest && (
-            <Button onClick={onNewRequest}>
-              <Plus className="w-4 h-4 mr-2" /> New Commercial Request
-            </Button>
-          )}
+          <span className="text-xs text-text-muted bg-bg-secondary px-3 py-1.5 rounded-lg border border-border-subtle flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" /> Admin Margin Verification Required
+          </span>
         </div>
       </div>
 
@@ -265,6 +280,7 @@ export function QuotationsView({
       <QuotationDetailModal
         quotation={selectedQuote}
         isOpen={!!selectedQuote}
+        currentUser={currentUser}
         onClose={() => setSelectedQuote(null)}
         onStatusChange={handleStatusChange}
         onNavigateToCustomer={onNavigateToCustomer}

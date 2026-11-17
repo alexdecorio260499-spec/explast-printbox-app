@@ -12,6 +12,9 @@ import { DesignView } from '../components/sales/DesignView';
 import { ProductionView } from '../components/sales/ProductionView';
 import { ReportsView } from '../components/sales/ReportsView';
 import { ClientDetailModal } from '../components/sales/ClientDetailModal';
+import { NewClientModal } from '../components/sales/NewClientModal';
+import { ProjectDetailModal } from '../components/sales/ProjectDetailModal';
+import { AppUser, APP_USERS } from '../types/demo';
 import { SalesDataService } from '../lib/sales/data-service';
 import { ExplastSalesService } from '../lib/sales/explast-service';
 import { DemoService } from '../lib/sales/demo-service';
@@ -37,11 +40,15 @@ import {
   RotateCcw,
   Sparkles,
   ArrowRight,
+  Building2,
+  Shield,
+  UserCheck,
 } from 'lucide-react';
 
 export default function App() {
   const [brand, setBrand] = useState<'Explast' | 'PrintBox'>('Explast');
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const [currentUser, setCurrentUser] = useState<AppUser>(APP_USERS[0]); // Alex L. by default
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>();
   const [projects, setProjects] = useState<any[]>(() => {
@@ -53,6 +60,8 @@ export default function App() {
     return DemoService.getCustomers() as unknown as Client[];
   });
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedProjectForModal, setSelectedProjectForModal] = useState<any | null>(null);
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
 
   // Refresh projects and clients across both systems and demo dataset
   async function refreshData() {
@@ -139,12 +148,14 @@ export default function App() {
         </nav>
         <div className="p-4 border-t border-border-subtle">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-xs font-medium">
-              AL
+            <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-xs font-bold">
+              {currentUser.avatar}
             </div>
-            <div className="text-sm">
-              <p className="font-medium text-text-primary">Alex L.</p>
-              <p className="text-xs text-text-muted">{brand === 'Explast' ? 'Manufacturing Sales' : 'Studio Sales'}</p>
+            <div className="text-sm min-w-0">
+              <p className="font-medium text-text-primary truncate">{currentUser.name}</p>
+              <p className="text-xs text-text-muted capitalize">
+                {currentUser.role === 'admin' ? 'Global Admin' : 'Sales Rep'}
+              </p>
             </div>
           </div>
         </div>
@@ -163,7 +174,33 @@ export default function App() {
             </span>
           </div>
           
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-5">
+            {/* ROLE & PERMISSION SWITCHER */}
+            <div className="flex items-center gap-2 bg-bg-secondary px-3 py-1.5 rounded-lg border border-border-subtle shadow-sm">
+              <div className="w-6 h-6 rounded-full bg-brand-primary text-white flex items-center justify-center text-[10px] font-bold">
+                {currentUser.avatar}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={currentUser.id}
+                  onChange={(e) => {
+                    const u = APP_USERS.find(x => x.id === e.target.value);
+                    if (u) setCurrentUser(u);
+                  }}
+                  className="bg-transparent text-xs font-semibold text-text-primary focus:outline-none cursor-pointer pr-1"
+                >
+                  {APP_USERS.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.role === 'admin' ? 'Admin / Full View' : 'Sales Rep'})
+                    </option>
+                  ))}
+                </select>
+                <Badge variant={currentUser.role === 'admin' ? 'neutral' : 'brand'} className="text-[9px] px-1.5 py-0">
+                  {currentUser.role === 'admin' ? 'Admin' : 'Sales'}
+                </Badge>
+              </div>
+            </div>
+
             <BrandToggle brand={brand} onChange={setBrand} />
             <div className="flex items-center space-x-4 text-text-muted">
               <button className="hover:text-text-primary transition-colors"><Search className="w-5 h-5" /></button>
@@ -181,12 +218,14 @@ export default function App() {
             <DashboardView 
               brand={brand} 
               projects={projects}
+              currentUser={currentUser}
               onNewProject={() => {
                 setResumeDraftId(undefined);
                 setIsFormOpen(true);
               }}
               onNavigateTab={(tab) => setActiveTab(tab)}
               onOpenClient={(cId) => setSelectedCustomerId(cId)}
+              onOpenProject={(proj) => setSelectedProjectForModal(proj)}
             />
           )}
 
@@ -194,10 +233,12 @@ export default function App() {
             <PipelineView 
               brand={brand} 
               projects={projects}
+              currentUser={currentUser}
               onNewProject={() => {
                 setResumeDraftId(undefined);
                 setIsFormOpen(true);
               }} 
+              onOpenProject={(proj) => setSelectedProjectForModal(proj)}
             />
           )}
 
@@ -205,7 +246,9 @@ export default function App() {
             <ClientsView 
               brand={brand} 
               clients={clients}
-              onAddClient={() => {
+              currentUser={currentUser}
+              onAddNewClient={() => setIsNewClientModalOpen(true)}
+              onAddClientRequest={() => {
                 setResumeDraftId(undefined);
                 setIsFormOpen(true);
               }}
@@ -216,42 +259,34 @@ export default function App() {
           {activeTab === 'Quotations' && (
             <QuotationsView
               brand={brand}
+              currentUser={currentUser}
               onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
-              onNewRequest={() => {
-                setResumeDraftId(undefined);
-                setIsFormOpen(true);
-              }}
             />
           )}
 
           {activeTab === 'Design' && (
             <DesignView
               brand={brand}
+              currentUser={currentUser}
               onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
-              onNewRequest={() => {
-                setResumeDraftId(undefined);
-                setIsFormOpen(true);
-              }}
             />
           )}
 
           {activeTab === 'Production' && (
             <ProductionView
               brand={brand}
+              currentUser={currentUser}
               onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
-              onNewRequest={() => {
-                setResumeDraftId(undefined);
-                setIsFormOpen(true);
-              }}
             />
           )}
 
           {activeTab === 'Reports' && (
-            <ReportsView brand={brand} />
+            <ReportsView brand={brand} currentUser={currentUser} />
           )}
 
           {activeTab === 'Settings' && (
             <SettingsView
+              currentUser={currentUser}
               onResetDemo={() => {
                 DemoService.resetDemoData();
                 refreshData();
@@ -295,6 +330,26 @@ export default function App() {
           setIsFormOpen(true);
         }}
       />
+
+      {/* NEW CLIENT REGISTRATION MODAL */}
+      <NewClientModal
+        isOpen={isNewClientModalOpen}
+        onClose={() => setIsNewClientModalOpen(false)}
+        onSuccess={async (newClient) => {
+          await refreshData();
+          setSelectedCustomerId(newClient.id);
+        }}
+        currentUser={currentUser}
+      />
+
+      {/* COMPREHENSIVE PROJECT CARD MODAL */}
+      <ProjectDetailModal
+        project={selectedProjectForModal}
+        isOpen={!!selectedProjectForModal}
+        onClose={() => setSelectedProjectForModal(null)}
+        onOpenClient={(clientId: string) => setSelectedCustomerId(clientId)}
+        currentUser={currentUser}
+      />
     </div>
   );
 }
@@ -302,25 +357,40 @@ export default function App() {
 function DashboardView({
   brand,
   projects,
+  currentUser,
   onNewProject,
   onNavigateTab,
   onOpenClient,
+  onOpenProject,
 }: {
   brand: string;
   projects: any[];
+  currentUser: AppUser;
   onNewProject: () => void;
   onNavigateTab: (tab: string) => void;
   onOpenClient: (customerId: string) => void;
+  onOpenProject: (project: any) => void;
 }) {
-  const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
-  const metrics = DemoService.getAnalyticsMetrics();
+  const isAdmin = currentUser.role === 'admin';
+  const brandProjects = projects
+    .filter(p => !p.brand || p.brand === brand || p.business_unit === brand)
+    .filter(p => isAdmin || p.assigned_salesperson === currentUser.name || p.salesperson === currentUser.name);
+
+  const metrics = DemoService.getAnalyticsMetrics(isAdmin ? undefined : currentUser.name);
   const activities = DemoService.getActivities();
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Executive Overview</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+              {isAdmin ? 'Executive Global Overview' : 'Commercial Sales Representative Portal'}
+            </h2>
+            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
+              {isAdmin ? 'Full Company Access' : `Assigned: ${currentUser.name}`}
+            </Badge>
+          </div>
           <h1 className="text-2xl font-medium text-text-primary">
             {brand === 'Explast' ? 'Explast Manufacturing Dashboard' : 'PrintBox Studio Dashboard'}
           </h1>
@@ -333,27 +403,27 @@ function DashboardView({
       {/* DYNAMIC TOP KPIS DERIVED FROM ACTUAL DEMO DATA */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <KPICard
-          label="Active Sales Requests"
-          value={String(brandProjects.length || 18)}
-          trend="Across 12 customer accounts"
+          label={isAdmin ? 'Active Sales Requests' : 'My Active Requests'}
+          value={String(brandProjects.length)}
+          trend={isAdmin ? 'Across all client accounts' : 'In your assigned portfolio'}
           accent="brand"
         />
         <KPICard
-          label="Total Quoted Pipeline"
+          label={isAdmin ? 'Total Quoted Pipeline' : 'My Quoted Pipeline'}
           value={`Rs ${Math.round(metrics.sales.totalQuotationValue / 1000)}k`}
-          trend={`${metrics.sales.totalQuotationsCount} active quotations`}
+          trend={`${metrics.sales.totalQuotationsCount} active proposals`}
           accent="purple"
         />
         <KPICard
-          label="Plant Orders in Progress"
+          label={isAdmin ? 'Plant Orders in Progress' : 'My Plant Orders in Run'}
           value={String(metrics.production.activeJobsCount)}
           trend="Line 1, 2 & 3 operational"
           accent="success"
         />
         <KPICard
-          label="Commercial Win Rate"
+          label={isAdmin ? 'Commercial Win Rate' : 'My Win Rate'}
           value={`${metrics.sales.conversionRate}%`}
-          trend="Rs 1.48M signed orders"
+          trend={`Rs ${Math.round(metrics.sales.acceptedQuotationValue / 1000)}k signed revenue`}
           accent="amber"
         />
       </div>
@@ -363,7 +433,9 @@ function DashboardView({
         {/* RECENT PROJECTS TABLE */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Recent Packaging Requests</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+              {isAdmin ? 'Recent Packaging Requests (All Representatives)' : `My Recent Requests (${currentUser.name})`}
+            </h3>
             <button
               onClick={() => onNavigateTab('Projects')}
               className="text-xs text-brand-primary hover:underline font-medium flex items-center gap-1"
@@ -377,6 +449,7 @@ function DashboardView({
                 <tr>
                   <th className="px-6 py-3 font-medium">Project</th>
                   <th className="px-6 py-3 font-medium">Client</th>
+                  {isAdmin && <th className="px-6 py-3 font-medium">Sales Rep</th>}
                   <th className="px-6 py-3 font-medium">Specification / Blend</th>
                   <th className="px-6 py-3 font-medium">Stage</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
@@ -384,7 +457,11 @@ function DashboardView({
               </thead>
               <tbody className="divide-y divide-border-subtle">
                 {brandProjects.slice(0, 6).map((p, idx) => (
-                  <tr key={p.id || idx} className="hover:bg-bg-secondary/50 transition-colors group">
+                  <tr
+                    key={p.id || idx}
+                    onClick={() => onOpenProject(p)}
+                    className="hover:bg-bg-secondary/50 transition-colors group cursor-pointer"
+                  >
                     <td className="px-6 py-4 font-medium text-text-primary">
                       {p.project_name}
                       {p.request_type && (
@@ -393,12 +470,25 @@ function DashboardView({
                     </td>
                     <td className="px-6 py-4 text-text-secondary">
                       <button
-                        onClick={() => p.client_id && onOpenClient(p.client_id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          p.client_id && onOpenClient(p.client_id);
+                        }}
                         className="hover:text-brand-primary hover:underline text-left"
                       >
                         {p.client?.company_name || p.clients?.company_name || p.client_name || 'Client Record'}
                       </button>
                     </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4 text-xs text-text-primary">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-5 h-5 rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold flex items-center justify-center">
+                            {(p.assigned_salesperson || p.salesperson || 'AL').substring(0, 2).toUpperCase()}
+                          </span>
+                          {p.assigned_salesperson || p.salesperson || 'Alex L.'}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-xs text-text-secondary">
                       {p.formulation ? (
                         <span>
@@ -417,10 +507,13 @@ function DashboardView({
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => onNavigateTab('Projects')}
-                        className="text-text-muted hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenProject(p);
+                        }}
+                        className="text-xs text-brand-primary hover:underline font-medium opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <MoreVertical className="w-4 h-4 ml-auto" />
+                        Open Card →
                       </button>
                     </td>
                   </tr>
@@ -540,8 +633,23 @@ function AttentionCard({ title, desc, type, time, onClick }: { title: string; de
   );
 }
 
-function PipelineView({ brand, projects, onNewProject }: { brand: string; projects: any[]; onNewProject: () => void }) {
-  const brandProjects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
+function PipelineView({
+  brand,
+  projects,
+  currentUser,
+  onNewProject,
+  onOpenProject,
+}: {
+  brand: string;
+  projects: any[];
+  currentUser: AppUser;
+  onNewProject: () => void;
+  onOpenProject: (project: any) => void;
+}) {
+  const isAdmin = currentUser.role === 'admin';
+  const brandProjects = projects
+    .filter(p => !p.brand || p.brand === brand || p.business_unit === brand)
+    .filter(p => isAdmin || p.assigned_salesperson === currentUser.name || p.salesperson === currentUser.name);
   
   const stages = [
     { name: 'Discovery', label: '1. Discovery & Enquiry' },
@@ -552,13 +660,21 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Pipeline</h2>
-          <h1 className="text-2xl font-medium text-text-primary">Active {brand} Projects</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+              {isAdmin ? 'Enterprise Pipeline Kanban' : 'Assigned Pipeline Portfolio'}
+            </h2>
+            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
+              {isAdmin ? 'All Sales Reps' : `${brandProjects.length} Projects for ${currentUser.name}`}
+            </Badge>
+          </div>
+          <h1 className="text-2xl font-medium text-text-primary">
+            {isAdmin ? `Active ${brand} Projects (Company-wide)` : `My Active ${brand} Projects`}
+          </h1>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline"><Search className="w-4 h-4 mr-2" /> Search</Button>
           <Button onClick={onNewProject}><Plus className="w-4 h-4 mr-2" /> New Request</Button>
         </div>
       </div>
@@ -583,14 +699,22 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
 
                 <div className="space-y-4 flex-1">
                   {stageProjects.map((proj) => (
-                    <Card key={proj.id} className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-border-strong transition-colors cursor-pointer">
+                    <Card
+                      key={proj.id}
+                      onClick={() => onOpenProject(proj)}
+                      className="p-4 border-t-2 border-t-brand-primary shadow-sm hover:border-brand-primary hover:shadow-md transition-all cursor-pointer group"
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                           {proj.final_product_type || proj.request_type || 'Packaging'}
                         </span>
-                        <button className="text-text-muted hover:text-text-primary"><MoreVertical className="w-3 h-3" /></button>
+                        <span className="text-[11px] text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                          Open Details →
+                        </span>
                       </div>
-                      <h4 className="text-sm font-medium text-text-primary mb-1">{proj.project_name}</h4>
+                      <h4 className="text-sm font-medium text-text-primary mb-1 group-hover:text-brand-primary transition-colors">
+                        {proj.project_name}
+                      </h4>
                       <p className="text-xs text-text-secondary mb-2">
                         {proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client'}
                       </p>
@@ -602,10 +726,12 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border-subtle/50">
-                        <div className="flex items-center gap-1 text-text-muted">
-                          <div className="w-5 h-5 rounded-full bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-[9px]">AL</div>
-                          <span>Sales</span>
+                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border-subtle/50">
+                        <div className="flex items-center gap-1.5 text-text-muted">
+                          <div className="w-5 h-5 rounded-full bg-brand-primary-light text-brand-primary-dark flex items-center justify-center font-bold text-[9px]">
+                            {(proj.assigned_salesperson || proj.salesperson || 'AL').substring(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-[10px] font-medium">{proj.assigned_salesperson || proj.salesperson || 'Sales'}</span>
                         </div>
                         <Badge variant="brand">{proj.technical_assessment?.status || proj.request_status || 'Active'}</Badge>
                       </div>
@@ -630,26 +756,51 @@ function PipelineView({ brand, projects, onNewProject }: { brand: string; projec
 function ClientsView({
   brand,
   clients,
-  onAddClient,
+  currentUser,
+  onAddNewClient,
+  onAddClientRequest,
   onSelectClient,
 }: {
   brand: string;
   clients: Client[];
-  onAddClient: () => void;
+  currentUser: AppUser;
+  onAddNewClient: () => void;
+  onAddClientRequest: () => void;
   onSelectClient: (client: Client) => void;
 }) {
+  const isAdmin = currentUser.role === 'admin';
+  const visibleClients = clients.filter(c =>
+    isAdmin || (c as any).assigned_salesperson === currentUser.name || (c as any).salesperson === currentUser.name
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Customer Relationship Management</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+              {isAdmin ? 'Enterprise CRM & Accounts Directory' : 'Assigned Customer Portfolio'}
+            </h2>
+            <Badge variant={isAdmin ? 'neutral' : 'brand'}>
+              {isAdmin ? `${visibleClients.length} Total Accounts` : `${visibleClients.length} Assigned to ${currentUser.name}`}
+            </Badge>
+          </div>
           <h1 className="text-2xl font-medium text-text-primary">Client Directory & Accounts</h1>
         </div>
-        <Button onClick={onAddClient}><Plus className="w-4 h-4 mr-2" /> Add Client Request</Button>
+
+        {/* Requirement 1: Separate Add New Client and Add Client Request */}
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={onAddNewClient}>
+            <Building2 className="w-4 h-4 mr-2" /> Add New Client
+          </Button>
+          <Button onClick={onAddClientRequest}>
+            <Plus className="w-4 h-4 mr-2" /> Add Client Request
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clients.map(c => (
+        {visibleClients.map(c => (
           <ClientCard 
             key={c.id} 
             name={c.company_name} 
@@ -657,6 +808,8 @@ function ClientsView({
             industry={c.industry || 'Packaging'} 
             phone={c.contact_phone || ''}
             email={c.contact_email || ''}
+            salesperson={(c as any).assigned_salesperson || (c as any).salesperson}
+            isAdmin={isAdmin}
             onClick={() => onSelectClient(c)}
           />
         ))}
@@ -671,6 +824,8 @@ function ClientCard({
   industry,
   phone,
   email,
+  salesperson,
+  isAdmin,
   onClick,
 }: {
   name: string;
@@ -678,6 +833,8 @@ function ClientCard({
   industry: string;
   phone: string;
   email: string;
+  salesperson?: string;
+  isAdmin?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -701,6 +858,12 @@ function ClientCard({
           <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Industry</span>
           <span className="font-medium text-text-primary">{industry}</span>
         </div>
+        {isAdmin && salesperson && (
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Assigned Rep</span>
+            <span className="font-medium text-brand-primary">{salesperson}</span>
+          </div>
+        )}
         <div className="flex justify-between items-center text-xs">
           <span className="text-text-muted uppercase tracking-wider font-semibold text-[10px]">Contact</span>
           <span className="text-text-secondary truncate ml-4">{phone || email || 'N/A'}</span>
@@ -715,7 +878,7 @@ function ClientCard({
   );
 }
 
-function SettingsView({ onResetDemo }: { onResetDemo: () => void }) {
+function SettingsView({ currentUser, onResetDemo }: { currentUser: AppUser; onResetDemo: () => void }) {
   const [resetDone, setResetDone] = useState(false);
 
   return (
@@ -756,28 +919,38 @@ function SettingsView({ onResetDemo }: { onResetDemo: () => void }) {
 
       <Card className="space-y-6">
         <div>
-          <h3 className="text-sm font-medium text-text-primary mb-1">Profile Information</h3>
-          <p className="text-xs text-text-secondary mb-4">Sales representative identity and business defaults.</p>
+          <h3 className="text-sm font-medium text-text-primary mb-1">Active User Profile</h3>
+          <p className="text-xs text-text-secondary mb-4">Current session identity and assigned security tier.</p>
         </div>
         
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted">First Name</label>
-            <input type="text" defaultValue="Alex" className="w-full bg-bg-input border border-border-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-colors" />
+            <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted">Full Name</label>
+            <input
+              type="text"
+              readOnly
+              value={currentUser.name}
+              className="w-full bg-bg-secondary border border-border-subtle rounded-md px-3 py-2 text-sm text-text-primary"
+            />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted">Last Name</label>
-            <input type="text" defaultValue="L." className="w-full bg-bg-input border border-border-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-colors" />
+            <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted">Role & Permission</label>
+            <input
+              type="text"
+              readOnly
+              value={currentUser.role === 'admin' ? 'Administrator (Full Enterprise Access)' : 'Sales Representative (Assigned Accounts Only)'}
+              className="w-full bg-bg-secondary border border-border-subtle rounded-md px-3 py-2 text-sm text-text-primary font-medium"
+            />
           </div>
           <div className="col-span-2 space-y-2">
             <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted">Email Address</label>
-            <input type="email" defaultValue="alex@explast.mu" className="w-full bg-bg-input border border-border-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-colors" />
+            <input
+              type="email"
+              readOnly
+              value={currentUser.email}
+              className="w-full bg-bg-secondary border border-border-subtle rounded-md px-3 py-2 text-sm text-text-primary"
+            />
           </div>
-        </div>
-
-        <div className="pt-4 border-t border-border-subtle flex justify-end gap-3">
-          <Button variant="ghost">Cancel</Button>
-          <Button>Save Changes</Button>
         </div>
       </Card>
     </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
-import { DemoQuotation, DemoQuotationStatus } from '@/types/demo';
+import React, { useState } from 'react';
+import { DemoQuotation, DemoQuotationStatus, AppUser } from '@/types/demo';
+import { DemoService } from '@/lib/sales/demo-service';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -19,28 +20,43 @@ import {
   Info,
   DollarSign,
   AlertTriangle,
+  ShieldCheck,
+  Send,
+  RotateCcw,
+  CheckCircle2,
+  Factory,
+  ArrowRight,
 } from 'lucide-react';
 
 interface QuotationDetailModalProps {
   quotation: DemoQuotation | null;
   isOpen: boolean;
+  currentUser?: AppUser;
   onClose: () => void;
-  onStatusChange?: (id: string, status: DemoQuotationStatus) => void;
+  onStatusChange?: (id: string, status: DemoQuotationStatus, actor?: string, notes?: string) => void;
   onNavigateToCustomer?: (customerId: string) => void;
 }
 
 export function QuotationDetailModal({
   quotation,
   isOpen,
+  currentUser,
   onClose,
   onStatusChange,
   onNavigateToCustomer,
 }: QuotationDetailModalProps) {
+  const [adminNote, setAdminNote] = useState('');
+  const [showAdminNoteInput, setShowAdminNoteInput] = useState(false);
+
   if (!isOpen || !quotation) return null;
+
+  const isAdmin = currentUser?.role === 'admin';
+  const currentActorName = currentUser?.name || 'Alex L.';
 
   const statusBadgeVariants: Record<DemoQuotationStatus, 'brand' | 'success' | 'warning' | 'error' | 'neutral'> = {
     draft: 'neutral',
     pending_approval: 'warning',
+    admin_approved: 'brand',
     sent: 'brand',
     awaiting_response: 'warning',
     accepted: 'success',
@@ -50,15 +66,21 @@ export function QuotationDetailModal({
   };
 
   const statusLabels: Record<DemoQuotationStatus, string> = {
-    draft: 'Draft (Internal)',
-    pending_approval: 'Awaiting Internal Approval',
-    sent: 'Sent to Customer',
-    awaiting_response: 'Awaiting Client Response',
-    accepted: 'Accepted / PO Confirmed',
-    rejected: 'Declined / Renegotiating',
+    draft: '1. Costing Draft (Internal)',
+    pending_approval: '2. Awaiting Admin Approval',
+    admin_approved: '3. Admin Approved (Ready to Send)',
+    sent: '4. Sent to Customer',
+    awaiting_response: '4. Awaiting Client Go-Ahead',
+    accepted: '5. Accepted (Order Dispatched)',
+    rejected: 'Declined / Withdrawn',
     expired: 'Expired Validity',
-    revised: 'Revised (Superseded)',
+    revised: 'Revised / Renegotiating',
   };
+
+  // Check if production job is linked
+  const linkedProduction = DemoService.getProductionJobs().find(
+    j => j.quotation_id === quotation.id || j.project_id === quotation.project_id
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -105,168 +127,234 @@ export function QuotationDetailModal({
           </div>
         </div>
 
-        {/* DEMO NOTICE BANNER */}
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-400">
-          <div className="flex items-center space-x-2">
-            <Info className="w-4 h-4 flex-shrink-0" />
-            <span><strong>Demonstration Dataset:</strong> Commercial unit prices, setup fees and totals are illustrative model values.</span>
+        {/* WORKFLOW PROGRESS TRACKER (Requirement 2) */}
+        <div className="px-6 py-3 bg-bg-secondary/30 border-b border-border-subtle overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[620px] text-xs">
+            
+            {/* Step 1: Sales Costing */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                quotation.status !== 'draft' ? 'bg-color-success text-white' : 'bg-brand-primary text-white'
+              }`}>
+                {quotation.status !== 'draft' ? '✓' : '1'}
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary leading-tight">1. Sales Costing</p>
+                <span className="text-[10px] text-text-muted">Prices & Margins Prepared</span>
+              </div>
+            </div>
+
+            <div className={`w-8 h-0.5 ${quotation.status !== 'draft' ? 'bg-color-success' : 'bg-border-subtle'}`} />
+
+            {/* Step 2: Admin Approval */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                quotation.status === 'admin_approved' || quotation.status === 'sent' || quotation.status === 'awaiting_response' || quotation.status === 'accepted'
+                  ? 'bg-color-success text-white'
+                  : quotation.status === 'pending_approval'
+                  ? 'bg-amber-500 text-white animate-pulse'
+                  : 'bg-bg-secondary text-text-muted'
+              }`}>
+                {quotation.status === 'admin_approved' || quotation.status === 'sent' || quotation.status === 'awaiting_response' || quotation.status === 'accepted' ? '✓' : '2'}
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary leading-tight">2. Admin Approval</p>
+                <span className="text-[10px] text-text-muted">
+                  {quotation.status === 'pending_approval' ? 'Awaiting Margin Check' : 'Authorized by Admin'}
+                </span>
+              </div>
+            </div>
+
+            <div className={`w-8 h-0.5 ${
+              quotation.status === 'sent' || quotation.status === 'awaiting_response' || quotation.status === 'accepted'
+                ? 'bg-color-success'
+                : 'bg-border-subtle'
+            }`} />
+
+            {/* Step 3: Sent to Client */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                quotation.status === 'accepted'
+                  ? 'bg-color-success text-white'
+                  : quotation.status === 'sent' || quotation.status === 'awaiting_response'
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-bg-secondary text-text-muted'
+              }`}>
+                {quotation.status === 'accepted' ? '✓' : '3'}
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary leading-tight">3. Client Review</p>
+                <span className="text-[10px] text-text-muted">Offer in Negotiation</span>
+              </div>
+            </div>
+
+            <div className={`w-8 h-0.5 ${quotation.status === 'accepted' ? 'bg-color-success' : 'bg-border-subtle'}`} />
+
+            {/* Step 4: Client Go-Ahead & Automated Production */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                quotation.status === 'accepted'
+                  ? 'bg-color-success text-white'
+                  : 'bg-bg-secondary text-text-muted'
+              }`}>
+                {quotation.status === 'accepted' ? '✓' : '4'}
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary leading-tight">4. Client Go-Ahead</p>
+                <span className="text-[10px] text-text-muted">Auto Production Dispatch</span>
+              </div>
+            </div>
+
           </div>
-          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-500/20 rounded">
-            Explast Demo ERP
-          </span>
         </div>
 
-        {/* CONTENT BODY */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* MODAL BODY */}
+        <div className="p-6 overflow-y-auto space-y-6 flex-1">
           
-          {/* TOP METRICS & METADATA */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Customer Box */}
-            <Card className="p-4 bg-bg-secondary/30">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 mb-2">
-                <Building className="w-3.5 h-3.5" /> Customer Account
-              </span>
-              <p className="font-semibold text-text-primary text-sm">{quotation.client_name}</p>
-              <p className="text-xs text-text-secondary mt-0.5">{quotation.contact_name}</p>
-              <p className="text-xs text-text-muted mt-0.5">{quotation.contact_email}</p>
-              {onNavigateToCustomer && (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onNavigateToCustomer(quotation.client_id);
-                  }}
-                  className="mt-3 text-xs text-brand-primary hover:underline font-medium flex items-center gap-1"
-                >
-                  View 360° Client Profile →
-                </button>
+          {/* CLIENT CONFIRMATION & AUTO-PRODUCTION SUCCESS BANNER */}
+          {quotation.status === 'accepted' && (
+            <div className="p-4 rounded-xl bg-color-success/10 border border-color-success/30 flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center space-x-3">
+                <CheckCircle2 className="w-5 h-5 text-color-success shrink-0" />
+                <div>
+                  <h4 className="text-sm font-semibold text-color-success">Order Confirmed by Client & Dispatched to Production</h4>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {linkedProduction
+                      ? `Manufacturing Job #${linkedProduction.job_reference} has been automatically staged on ${linkedProduction.assigned_team}.`
+                      : 'Production Job automatically queued for plant floor extrusion.'}
+                  </p>
+                </div>
+              </div>
+              {linkedProduction && (
+                <Badge variant="success">Stage: {linkedProduction.current_stage?.toUpperCase()}</Badge>
               )}
-            </Card>
+            </div>
+          )}
 
-            {/* Commercial Terms Box */}
-            <Card className="p-4 bg-bg-secondary/30">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 mb-2">
-                <Calendar className="w-3.5 h-3.5" /> Commercial Terms
-              </span>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Issue Date:</span>
-                  <span className="font-medium text-text-primary">{quotation.created_at.substring(0, 10)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Valid Until:</span>
-                  <span className="font-medium text-text-primary">{quotation.valid_until.substring(0, 10)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Payment:</span>
-                  <span className="font-medium text-text-primary">{quotation.payment_terms}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Est. Lead Time:</span>
-                  <span className="font-medium text-brand-primary">{quotation.estimated_lead_time_days} Days</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Sales Representative */}
-            <Card className="p-4 bg-bg-secondary/30">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 mb-2">
-                <User className="w-3.5 h-3.5" /> Sales Specialist
-              </span>
-              <div className="flex items-center space-x-3 mb-2">
-                <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold text-xs">
-                  {quotation.salesperson.substring(0, 2)}
-                </div>
+          {/* ADMIN APPROVAL STATUS BANNER */}
+          {quotation.status === 'pending_approval' && (
+            <div className="p-4 rounded-xl bg-color-warning/10 border border-color-warning/30 flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center space-x-3">
+                <ShieldCheck className="w-5 h-5 text-color-warning shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-text-primary">{quotation.salesperson}</p>
-                  <p className="text-[11px] text-text-muted">Manufacturing Sales Lead</p>
+                  <h4 className="text-sm font-semibold text-color-warning">Pending Internal Admin Approval</h4>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Price calculation and profit margins must be verified and authorized by management before transmitting to the client.
+                  </p>
                 </div>
               </div>
-              <p className="text-xs text-text-secondary">
-                Delivery: <span className="text-text-primary font-medium">{quotation.delivery_terms}</span>
-              </p>
-            </Card>
+              {isAdmin && (
+                <div className="flex items-center space-x-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      onStatusChange?.(quotation.id, 'admin_approved', currentActorName, 'Pricing and gross margin verified and approved by management.');
+                    }}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Approve as Admin
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 1. TOP METADATA BAR */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-lg bg-bg-secondary/30 border border-border-subtle text-xs">
+            <div>
+              <span className="text-text-muted uppercase text-[10px] block">Customer</span>
+              <button
+                onClick={() => onNavigateToCustomer?.(quotation.client_id)}
+                className="font-semibold text-text-primary hover:text-brand-primary hover:underline text-left mt-0.5"
+              >
+                {quotation.client_name}
+              </button>
+            </div>
+            <div>
+              <span className="text-text-muted uppercase text-[10px] block">Sales Representative</span>
+              <p className="font-semibold text-text-primary mt-0.5">{quotation.salesperson}</p>
+            </div>
+            <div>
+              <span className="text-text-muted uppercase text-[10px] block">Creation Date</span>
+              <p className="font-semibold text-text-primary mt-0.5">{quotation.created_at}</p>
+            </div>
+            <div>
+              <span className="text-text-muted uppercase text-[10px] block">Validity</span>
+              <p className="font-semibold text-text-primary mt-0.5">{quotation.valid_until}</p>
+            </div>
           </div>
 
-          {/* SPECIFICATION SUMMARY */}
-          {quotation.items.map((item, idx) => (
-            <Card key={item.id || idx} className="p-4 border-l-4 border-l-brand-primary">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-border-subtle">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary">
-                    Packaging Specification
-                  </span>
-                  <h3 className="text-sm font-semibold text-text-primary mt-0.5">{item.description}</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="neutral">{item.final_product_type}</Badge>
-                  <Badge variant={item.print_type === 'printed' ? 'brand' : 'neutral'}>
-                    {item.print_type === 'printed' ? `${item.num_colors} Colours Printed` : 'Plain Film'}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3 text-xs">
-                <div>
-                  <span className="text-text-muted text-[10px] uppercase font-semibold">Material Family</span>
-                  <p className="font-medium text-text-primary mt-0.5">{item.material_family} {item.material_grade ? `(${item.material_grade})` : ''}</p>
-                </div>
-                <div>
-                  <span className="text-text-muted text-[10px] uppercase font-semibold">Exact Formulation</span>
-                  <p className="font-medium text-text-primary mt-0.5 truncate" title={item.formulation}>{item.formulation}</p>
-                </div>
-                <div>
-                  <span className="text-text-muted text-[10px] uppercase font-semibold">Film Gauge</span>
-                  <p className="font-medium text-text-primary mt-0.5">{item.thickness_micron} µm (Micron)</p>
-                </div>
-                <div>
-                  <span className="text-text-muted text-[10px] uppercase font-semibold">Dimensions</span>
-                  <p className="font-medium text-text-primary mt-0.5">{item.dimensions_summary}</p>
-                </div>
-              </div>
-            </Card>
-          ))}
-
-          {/* COMMERCIAL LINE ITEMS TABLE */}
-          <div className="border border-border-subtle rounded-lg overflow-hidden">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-bg-secondary text-text-muted uppercase text-[10px] tracking-wider font-semibold border-b border-border-subtle">
-                <tr>
-                  <th className="px-4 py-3">Item Specification</th>
-                  <th className="px-4 py-3 text-right">Quantity</th>
-                  <th className="px-4 py-3 text-right">Unit Price (MUR)</th>
-                  <th className="px-4 py-3 text-right">Tooling / Cylinders</th>
-                  <th className="px-4 py-3 text-right font-bold">Subtotal (MUR)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {quotation.items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-bg-secondary/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-text-primary max-w-xs">
-                      {item.description}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      {item.quantity.toLocaleString()} {item.quantity_unit}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      Rs {item.unit_price_mur.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-text-secondary">
-                      {item.tooling_stereos_fee_mur > 0 ? `Rs ${item.tooling_stereos_fee_mur.toLocaleString()}` : 'Included'}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-text-primary">
-                      Rs {item.subtotal_mur.toLocaleString()}
-                    </td>
+          {/* 2. STANDARDISED LINE ITEMS & SPECIFICATION */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-3 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-brand-primary" /> Standardised Commercial Specification
+            </h3>
+            
+            <div className="border border-border-subtle rounded-lg overflow-hidden">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-bg-secondary text-text-muted uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="px-4 py-2.5">Item & Material Formulation</th>
+                    <th className="px-4 py-2.5">Type & Finish</th>
+                    <th className="px-4 py-2.5 text-right">Volume</th>
+                    <th className="px-4 py-2.5 text-right">Unit Price</th>
+                    <th className="px-4 py-2.5 text-right">Prepress Tooling</th>
+                    <th className="px-4 py-2.5 text-right">Subtotal (Excl. VAT)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {quotation.items.map((item) => (
+                    <tr key={item.id} className="hover:bg-bg-secondary/30">
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-text-primary">{item.description}</p>
+                        <p className="text-[11px] text-text-secondary mt-0.5">
+                          {item.material_family} • <strong className="text-brand-primary">{item.formulation}</strong>
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="neutral">{item.final_product_type}</Badge>
+                        <span className="ml-2 text-[11px] text-text-secondary">
+                          {item.print_type === 'printed' ? `${item.num_colors} Cols Flexo` : 'Plain'} • {item.thickness_micron}µm
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold">
+                        {item.quantity.toLocaleString()} {item.quantity_unit}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        Rs {item.unit_price_mur.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-text-secondary">
+                        {item.tooling_stereos_fee_mur > 0 ? `Rs ${item.tooling_stereos_fee_mur.toLocaleString()}` : 'Included'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-text-primary">
+                        Rs {item.subtotal_mur.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* TOTALS & BREAKDOWN */}
+          {/* 3. COST BREAKDOWN & COMMERCIAL TOTALS */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-2">
-            <div className="text-xs text-text-secondary max-w-md space-y-1">
-              <p className="font-semibold text-text-primary">Special Commercial Notes:</p>
-              <p>{quotation.internal_notes || 'Price valid for standard manufacturing run. Delivery as per agreed schedule. Quality warranty according to Explast packaging standard tolerances (±5% gauge).'}</p>
+            <div className="text-xs text-text-secondary max-w-md space-y-2">
+              <div className="p-3 bg-bg-secondary/20 rounded border border-border-subtle space-y-1">
+                <span className="font-semibold text-text-primary text-[11px]">Commercial Governance & Terms:</span>
+                <p>• Payment Terms: <strong className="text-text-primary">{quotation.payment_terms || '30 Days End of Month'}</strong></p>
+                <p>• Estimated Lead Time: <strong className="text-text-primary">{quotation.estimated_lead_time_days || 14} working days from order approval</strong></p>
+                <p>• Delivery: Royal Road warehouse delivery included (standard tolerances ±5%).</p>
+              </div>
+
+              {quotation.admin_approval && (
+                <div className="p-2.5 rounded bg-brand-primary/10 border border-brand-primary/20 text-[11px] text-brand-primary space-y-0.5">
+                  <p className="font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Admin Margin Authorization:
+                  </p>
+                  <p className="text-text-secondary">
+                    Approved by {quotation.admin_approval.approved_by} on {quotation.admin_approval.approved_at.substring(0, 16).replace('T', ' ')}.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="w-full sm:w-72 bg-bg-secondary/40 p-4 rounded-lg border border-border-subtle space-y-2 text-xs">
@@ -276,7 +364,7 @@ export function QuotationDetailModal({
               </div>
               {quotation.tooling_charges_mur > 0 && (
                 <div className="flex justify-between text-text-secondary">
-                  <span>Prepress Tooling / Plates:</span>
+                  <span>Prepress Tooling / Stereos:</span>
                   <span className="font-mono font-medium text-text-primary">Rs {quotation.tooling_charges_mur.toLocaleString()}</span>
                 </div>
               )}
@@ -285,25 +373,25 @@ export function QuotationDetailModal({
                 <span className="font-mono font-medium text-text-primary">Rs {quotation.tax_mur.toLocaleString()}</span>
               </div>
               <div className="pt-2 border-t border-border-subtle flex justify-between text-sm font-bold text-text-primary">
-                <span>Total Amount:</span>
+                <span>Total Amount (MUR):</span>
                 <span className="font-mono text-brand-primary">Rs {quotation.total_mur.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          {/* AUDIT TIMELINE */}
+          {/* 4. AUDIT TRAIL OF BACK-AND-FORTH INTERACTIONS */}
           <div className="pt-4 border-t border-border-subtle">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-3">
-              Version & Approval History
+            <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-3 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" /> Approval & Communication Log
             </h4>
             <div className="space-y-2">
               {quotation.history.map((h, i) => (
-                <div key={i} className="flex items-start text-xs space-x-3 p-2 rounded bg-bg-secondary/30">
+                <div key={i} className="flex items-start text-xs space-x-3 p-2.5 rounded bg-bg-secondary/30">
                   <div className="w-2 h-2 rounded-full bg-brand-primary mt-1.5" />
                   <div className="flex-1">
                     <div className="flex justify-between">
                       <span className="font-semibold text-text-primary">{h.action}</span>
-                      <span className="text-text-muted text-[11px]">{h.date}</span>
+                      <span className="text-text-muted text-[11px] font-mono">{h.date}</span>
                     </div>
                     <p className="text-text-secondary text-[11px] mt-0.5">By {h.actor} {h.notes && `— ${h.notes}`}</p>
                   </div>
@@ -311,40 +399,86 @@ export function QuotationDetailModal({
               ))}
             </div>
           </div>
+
         </div>
 
-        {/* MODAL FOOTER ACTIONS */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border-subtle bg-bg-secondary/40">
+        {/* MODAL FOOTER ACTIONS (Role-Aware Governance) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-6 py-4 border-t border-border-subtle bg-bg-secondary/40 gap-3">
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
 
-          <div className="flex items-center space-x-2">
-            {onStatusChange && quotation.status !== 'accepted' && (
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            
+            {/* 1. SALES ACTION: Submit for Admin Approval */}
+            {quotation.status === 'draft' && onStatusChange && (
               <Button
-                variant="outline"
                 onClick={() => {
-                  onStatusChange(quotation.id, 'accepted');
+                  onStatusChange(quotation.id, 'pending_approval', currentActorName, 'Submitted for price and margin review.');
                 }}
-                className="text-color-success border-color-success/40 hover:bg-color-success/10"
               >
-                <CheckCircle className="w-4 h-4 mr-1.5" /> Mark as Accepted
+                <ShieldCheck className="w-4 h-4 mr-1.5" /> Submit for Admin Approval
               </Button>
             )}
 
-            {onStatusChange && quotation.status === 'sent' && (
+            {/* 2. ADMIN ACTIONS: Approve or Request Revision */}
+            {quotation.status === 'pending_approval' && onStatusChange && isAdmin && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onStatusChange(quotation.id, 'revised', currentActorName, 'Management requested price margin recalculation.');
+                  }}
+                  className="text-color-warning border-color-warning/40 hover:bg-color-warning/10"
+                >
+                  <RotateCcw className="w-4 h-4 mr-1.5" /> Request Revision
+                </Button>
+                <Button
+                  onClick={() => {
+                    onStatusChange(quotation.id, 'admin_approved', currentActorName, 'Pricing and gross margin verified and approved by management.');
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1.5" /> Approve Pricing & Margins
+                </Button>
+              </>
+            )}
+
+            {/* 3. TRANSMIT TO CLIENT */}
+            {quotation.status === 'admin_approved' && onStatusChange && (
               <Button
-                variant="outline"
                 onClick={() => {
-                  onStatusChange(quotation.id, 'revised');
+                  onStatusChange(quotation.id, 'sent', currentActorName, 'Official quotation proposal transmitted to customer.');
                 }}
               >
-                Issue Revised Quote
+                <Send className="w-4 h-4 mr-1.5" /> Transmit to Client
               </Button>
             )}
 
-            <Button onClick={() => window.print()}>
-              <Printer className="w-4 h-4 mr-1.5" /> Print / Export
+            {/* 4. CLIENT RESPONSES: Accept or Renegotiate */}
+            {(quotation.status === 'sent' || quotation.status === 'awaiting_response') && onStatusChange && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onStatusChange(quotation.id, 'revised', currentActorName, 'Client requested volume discount / revision.');
+                  }}
+                >
+                  <RotateCcw className="w-4 h-4 mr-1.5" /> Client Wants Renegotiation
+                </Button>
+                
+                <Button
+                  onClick={() => {
+                    onStatusChange(quotation.id, 'accepted', currentActorName, 'Customer issued purchase order / accepted terms.');
+                  }}
+                  className="bg-color-success hover:bg-color-success/90 text-white"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" /> Record Client Go-Ahead (Accept Order)
+                </Button>
+              </>
+            )}
+
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer className="w-4 h-4 mr-1.5" /> Print / PDF
             </Button>
           </div>
         </div>
