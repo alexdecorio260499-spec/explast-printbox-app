@@ -18,7 +18,6 @@ import {
   FolderKanban,
   FileText,
   Palette,
-  Factory,
   Clock,
   Sparkles,
   Award,
@@ -31,7 +30,6 @@ interface ClientDetailModalProps {
   onClose: () => void;
   onOpenQuotation?: (quotationId: string) => void;
   onOpenDesign?: (designId: string) => void;
-  onOpenProduction?: (jobId: string) => void;
   onNewRequest?: () => void;
 }
 
@@ -41,10 +39,9 @@ export function ClientDetailModal({
   onClose,
   onOpenQuotation,
   onOpenDesign,
-  onOpenProduction,
   onNewRequest,
 }: ClientDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'timeline' | 'projects' | 'quotations' | 'designs' | 'production'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'projects' | 'quotations' | 'designs'>('timeline');
 
   if (!isOpen || !customerId) return null;
 
@@ -153,16 +150,6 @@ export function ClientDetailModal({
             }`}
           >
             <Palette className="w-3.5 h-3.5" /> Artwork ({relationship.designs.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('production')}
-            className={`py-3 px-3.5 font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-              activeTab === 'production'
-                ? 'border-brand-primary text-brand-primary'
-                : 'border-transparent text-text-muted hover:text-text-primary'
-            }`}
-          >
-            <Factory className="w-3.5 h-3.5" /> Production ({relationship.productionJobs.length})
           </button>
         </div>
 
@@ -295,37 +282,6 @@ export function ClientDetailModal({
                       {des.spot_colors_hex.map((hex, i) => (
                         <div key={i} className="w-3.5 h-3.5 rounded-sm border" style={{ backgroundColor: hex }} />
                       ))}
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* TAB 5: PRODUCTION */}
-          {activeTab === 'production' && (
-            <div className="space-y-3">
-              {relationship.productionJobs.length === 0 ? (
-                <p className="text-center text-xs text-text-muted py-8">No production orders placed yet.</p>
-              ) : (
-                relationship.productionJobs.map((job, idx) => (
-                  <Card
-                    key={job.id || idx}
-                    className="p-4 flex items-center justify-between hover:border-color-success transition-colors cursor-pointer"
-                    onClick={() => onOpenProduction && onOpenProduction(job.id)}
-                  >
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-sm font-semibold text-text-primary">{job.job_reference}</span>
-                        <Badge variant="brand">{job.current_stage.toUpperCase()}</Badge>
-                      </div>
-                      <p className="text-xs text-text-secondary mt-0.5">
-                        {job.product_type} • {job.required_quantity.toLocaleString()} {job.quantity_unit}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-text-primary">{job.progress_percent}% Complete</p>
-                      <p className="text-[11px] text-text-muted">Target: {job.target_completion_date}</p>
                     </div>
                   </Card>
                 ))

@@ -8,11 +8,11 @@ import { KPICard } from '../components/ui/KPICard';
 import { EntityCard } from '../components/ui/EntityCard';
 import { PageHeader } from '../components/ui/PageHeader';
 import { BrandToggle } from '../components/ui/BrandToggle';
+import { FilterToolbar, FilterOption } from '../components/ui/FilterToolbar';
 import { AdaptiveSalesFormModal } from '../components/sales/AdaptiveSalesFormModal';
 import { ExplastSalesFormModal } from '../components/sales/ExplastSalesFormModal';
 import { QuotationsView } from '../components/sales/QuotationsView';
 import { DesignView } from '../components/sales/DesignView';
-import { ProductionView } from '../components/sales/ProductionView';
 import { ReportsView } from '../components/sales/ReportsView';
 import { ClientDetailModal } from '../components/sales/ClientDetailModal';
 import { NewClientModal } from '../components/sales/NewClientModal';
@@ -29,7 +29,6 @@ import {
   FolderKanban,
   FileText,
   Palette,
-  Factory,
   BarChart,
   Settings,
   Bell,
@@ -119,7 +118,6 @@ export default function App() {
     { name: 'Projects', icon: FolderKanban },
     { name: 'Quotations', icon: FileText },
     { name: 'Design', icon: Palette },
-    { name: 'Production', icon: Factory },
     { name: 'Reports', icon: BarChart },
     { name: 'Settings', icon: Settings },
   ];
@@ -269,14 +267,6 @@ export default function App() {
 
           {activeTab === 'Design' && (
             <DesignView
-              brand={brand}
-              currentUser={currentUser}
-              onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
-            />
-          )}
-
-          {activeTab === 'Production' && (
-            <ProductionView
               brand={brand}
               currentUser={currentUser}
               onNavigateToCustomer={(cId) => setSelectedCustomerId(cId)}
@@ -549,11 +539,11 @@ function DashboardView({
               onClick={() => onNavigateTab('Design')}
             />
             <AttentionCard 
-              title="Extruder Line 1 Yellow Run"
-              desc="AgriFertilizer 2,750kg heavy yellow film ready for conversion"
+              title="AgriFertilizer Bulk Order"
+              desc="AgriFertilizer 2,750kg heavy yellow film sales request ready for review"
               type="brand"
               time="4 hrs ago"
-              onClick={() => onNavigateTab('Production')}
+              onClick={() => onNavigateTab('Projects')}
             />
             <AttentionCard 
               title="Quotation Pending Acceptance"
@@ -563,11 +553,11 @@ function DashboardView({
               onClick={() => onNavigateTab('Quotations')}
             />
             <AttentionCard 
-              title="Microperforation Tool Check"
-              desc="Needle puncture wheel clearance calibrated on Sealer #1"
+              title="Prepress Proof Ready for Review"
+              desc="Phoenix Beverages 5-color shrink film artwork proof awaiting client sign-off"
               type="success"
               time="1 day ago"
-              onClick={() => onNavigateTab('Production')}
+              onClick={() => onNavigateTab('Design')}
             />
           </div>
         </div>
@@ -649,59 +639,59 @@ function PipelineView({
         }
       />
 
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-6 min-w-[1000px]">
-          {stages.map((stage) => {
-            const stageProjects = brandProjects.filter(p => {
-              if (stage.name === 'Discovery') return p.kanban_stage === 'Discovery' || !p.kanban_stage;
-              if (stage.name === 'Quoting') return p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation';
-              if (stage.name === 'Production Order') return p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production';
-              if (stage.name === 'Completed') return p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed';
-              return false;
-            });
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        {stages.map((stage) => {
+          const stageProjects = brandProjects.filter(p => {
+            if (stage.name === 'Discovery') return p.kanban_stage === 'Discovery' || !p.kanban_stage;
+            if (stage.name === 'Quoting') return p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation';
+            if (stage.name === 'Production Order') return p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production';
+            if (stage.name === 'Completed') return p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed';
+            return false;
+          });
 
-            return (
-              <div key={stage.name} className="flex-1 bg-bg-secondary/40 p-4 rounded-xl border border-border-subtle flex flex-col">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">{stage.label}</h3>
-                  <Badge variant="neutral">{stageProjects.length}</Badge>
-                </div>
-
-                <div className="space-y-4 flex-1">
-                  {stageProjects.map((proj) => (
-                    <EntityCard
-                      key={proj.id}
-                      category={proj.final_product_type || proj.request_type || 'Packaging'}
-                      title={proj.project_name}
-                      subtitle={proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client Record'}
-                      specPrimary={
-                        proj.formulation ? (
-                          <>
-                            <strong className="text-text-primary font-medium">{proj.material_family}</strong> • {proj.formulation}
-                          </>
-                        ) : 'Standard Packaging'
-                      }
-                      specSecondary={
-                        proj.print_type === 'printed' ? `${proj.printing_spec?.num_colors || 1} Colors` : 'Plain'
-                      }
-                      salespersonName={proj.assigned_salesperson || proj.salesperson || 'Alex L.'}
-                      statusLabel={proj.technical_assessment?.status || proj.request_status || proj.kanban_stage || 'Active'}
-                      statusVariant="brand"
-                      hoverActionText="Open Details →"
-                      onClick={() => onOpenProject(proj)}
-                    />
-                  ))}
-
-                  {stageProjects.length === 0 && (
-                    <div className="border border-dashed border-border-subtle rounded-lg p-6 text-center text-xs text-text-muted">
-                      No projects in this stage
-                    </div>
-                  )}
-                </div>
+          return (
+            <div key={stage.name} className="bg-bg-secondary/40 p-3.5 rounded-xl border border-border-subtle flex flex-col min-w-0">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary truncate pr-1">
+                  {stage.label}
+                </h3>
+                <Badge variant="neutral">{stageProjects.length}</Badge>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="space-y-3 flex-1 min-w-0">
+                {stageProjects.map((proj) => (
+                  <EntityCard
+                    key={proj.id}
+                    category={proj.final_product_type || proj.request_type || 'Packaging'}
+                    title={proj.project_name}
+                    subtitle={proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client Record'}
+                    specPrimary={
+                      proj.formulation ? (
+                        <>
+                          <strong className="text-text-primary font-medium">{proj.material_family}</strong> • {proj.formulation}
+                        </>
+                      ) : 'Standard Packaging'
+                    }
+                    specSecondary={
+                      proj.print_type === 'printed' ? `${proj.printing_spec?.num_colors || 1} Colors` : 'Plain'
+                    }
+                    salespersonName={proj.assigned_salesperson || proj.salesperson || 'Alex L.'}
+                    statusLabel={proj.technical_assessment?.status || proj.request_status || proj.kanban_stage || 'Active'}
+                    statusVariant="brand"
+                    hoverActionText="Open Details →"
+                    onClick={() => onOpenProject(proj)}
+                  />
+                ))}
+
+                {stageProjects.length === 0 && (
+                  <div className="border border-dashed border-border-subtle rounded-lg p-5 text-center text-xs text-text-muted">
+                    No projects in this stage
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -722,16 +712,52 @@ function ClientsView({
   onAddClientRequest: () => void;
   onSelectClient: (client: Client) => void;
 }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+
   const isAdmin = currentUser.role === 'admin';
   const visibleClients = clients.filter(c =>
     isAdmin || (c as any).assigned_salesperson === currentUser.name || (c as any).salesperson === currentUser.name
   );
 
+  const filteredClients = visibleClients.filter(c => {
+    const q = searchTerm.toLowerCase().trim();
+    const matchesSearch = !q || (
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_name?.toLowerCase().includes(q) ||
+      c.contact_email?.toLowerCase().includes(q) ||
+      c.contact_phone?.toLowerCase().includes(q) ||
+      c.industry?.toLowerCase().includes(q) ||
+      c.location_type?.toLowerCase().includes(q) ||
+      (c as any).assigned_salesperson?.toLowerCase().includes(q) ||
+      (c as any).notes?.toLowerCase().includes(q)
+    );
+
+    if (!matchesSearch) return false;
+
+    if (activeFilter === 'key') {
+      return (c as any).account_tier === 'Key Account' || (c as any).account_tier === 'VIP';
+    }
+    if (activeFilter === 'regular') {
+      return (c as any).account_tier === 'Regular' || !(c as any).account_tier;
+    }
+    return true;
+  });
+
+  const keyCount = visibleClients.filter(c => (c as any).account_tier === 'Key Account' || (c as any).account_tier === 'VIP').length;
+  const regularCount = visibleClients.filter(c => (c as any).account_tier === 'Regular' || !(c as any).account_tier).length;
+
+  const filterOptions: FilterOption[] = [
+    { id: 'all', label: 'All Accounts', count: visibleClients.length },
+    { id: 'key', label: 'Key Accounts / VIP', count: keyCount },
+    { id: 'regular', label: 'Standard Accounts', count: regularCount },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300">
       <PageHeader
         eyebrow={isAdmin ? 'Enterprise CRM & Accounts Directory' : 'Assigned Customer Portfolio'}
-        badgeText={isAdmin ? `${visibleClients.length} Total Accounts` : `${visibleClients.length} Assigned to ${currentUser.name}`}
+        badgeText={isAdmin ? `${filteredClients.length} of ${visibleClients.length} Accounts` : `${filteredClients.length} Assigned to ${currentUser.name}`}
         badgeVariant={isAdmin ? 'neutral' : 'brand'}
         title="Client Directory & Accounts"
         actions={
@@ -746,27 +772,56 @@ function ClientsView({
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {visibleClients.map(c => (
-          <EntityCard
-            key={c.id}
-            category={c.industry || 'Packaging'}
-            title={c.company_name}
-            subtitle={c.contact_name ? `${c.contact_name} • ${c.contact_phone || c.contact_email || 'Contact'}` : (c.contact_phone || c.contact_email || 'Direct Account')}
-            specPrimary={
-              <>
-                <strong className="text-text-primary font-medium">{c.location_type || 'Local (Mauritius)'}</strong> • {c.account_tier || 'Client'}
-              </>
-            }
-            specSecondary={`${(c as any).active_projects_count ?? 1} Projects`}
-            salespersonName={(c as any).assigned_salesperson || (c as any).salesperson || 'Alex L.'}
-            statusLabel={c.account_tier || 'Active Account'}
-            statusVariant={c.account_tier === 'Key Account' || c.account_tier === 'VIP' ? 'brand' : 'neutral'}
-            hoverActionText="View 360° Profile →"
-            onClick={() => onSelectClient(c)}
-          />
-        ))}
-      </div>
+      {/* SEARCH AND FILTER TOOLBAR */}
+      <FilterToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search clients by company name, contact person, phone, email, or sector..."
+        filterOptions={filterOptions}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+      />
+
+      {filteredClients.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClients.map(c => (
+            <EntityCard
+              key={c.id}
+              category={c.industry || 'Packaging'}
+              title={c.company_name}
+              subtitle={c.contact_name ? `${c.contact_name} • ${c.contact_phone || c.contact_email || 'Contact'}` : (c.contact_phone || c.contact_email || 'Direct Account')}
+              specPrimary={
+                <>
+                  <strong className="text-text-primary font-medium">{c.location_type || 'Local (Mauritius)'}</strong> • {c.account_tier || 'Client'}
+                </>
+              }
+              specSecondary={`${(c as any).active_projects_count ?? 1} Projects`}
+              salespersonName={(c as any).assigned_salesperson || (c as any).salesperson || 'Alex L.'}
+              statusLabel={c.account_tier || 'Active Account'}
+              statusVariant={c.account_tier === 'Key Account' || c.account_tier === 'VIP' ? 'brand' : 'neutral'}
+              hoverActionText="View 360° Profile →"
+              onClick={() => onSelectClient(c)}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card className="p-12 text-center border-dashed border-border-strong">
+          <p className="text-sm font-semibold text-text-primary mb-1">No matching clients found</p>
+          <p className="text-xs text-text-secondary mb-4">
+            No customer accounts matched &ldquo;{searchTerm}&rdquo;. Try another search term or clear filters.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchTerm('');
+              setActiveFilter('all');
+            }}
+          >
+            Clear Search
+          </Button>
+        </Card>
+      )}
     </div>
   );
 }
