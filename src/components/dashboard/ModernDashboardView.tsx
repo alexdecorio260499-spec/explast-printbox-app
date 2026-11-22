@@ -15,16 +15,9 @@ import {
   FolderKanban,
   CheckCircle2,
   Factory,
-  Clock,
-  AlertCircle,
   Plus,
-  ExternalLink,
   ChevronRight,
-  Building,
   User,
-  FileText,
-  Calendar,
-  Sparkles,
 } from 'lucide-react';
 
 interface ModernDashboardViewProps {
@@ -72,13 +65,14 @@ export function ModernDashboardView({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* A. DASHBOARD HEADER */}
       <PageHeader
-        eyebrow={isAdmin ? 'Enterprise Modern Overview' : `Sales Representative Portal • ${currentUser.name}`}
+        eyebrow={isAdmin ? 'Enterprise Overview' : `Sales Portal • ${currentUser.name}`}
         badgeText={isAdmin ? `${brand} Executive Access` : `Portfolio: ${currentUser.name}`}
         badgeVariant={isAdmin ? 'neutral' : 'brand'}
         title="Dashboard"
+        description="Your business at a glance."
         actions={
           <div className="flex flex-wrap items-center gap-3">
             {/* Period Selector */}
@@ -113,7 +107,6 @@ export function ModernDashboardView({
           label="Total Quoted Value"
           value={`Rs ${metrics.sales.totalQuotationValue.toLocaleString()}`}
           variation={metrics.sales.quotedVariation}
-          trend={`Across ${metrics.sales.totalQuotationsCount} formal proposals`}
           sparklineData={metrics.sales.quotedSparkline}
           sparklineColor="teal"
           accent="brand"
@@ -123,13 +116,8 @@ export function ModernDashboardView({
         {/* Card 2 – Active Projects */}
         <KPICard
           label={isAdmin ? 'Active Projects' : 'My Active Projects'}
-          value={brandProjects.length}
-          variation={{
-            percent: 8.5,
-            isPositive: true,
-            comparisonText: `+8.5% vs previous period`,
-          }}
-          trend={`${metrics.sales.totalRequests} total requests logged`}
+          value={`${brandProjects.length} Active Projects`}
+          variation={metrics.sales.activeProjectsVariation}
           sparklineData={[12, 14, 15, 17, 16, brandProjects.length]}
           sparklineColor="teal"
           accent="purple"
@@ -139,21 +127,19 @@ export function ModernDashboardView({
         {/* Card 3 – Commercial Win Rate */}
         <KPICard
           label="Commercial Win Rate"
-          value={`${metrics.sales.conversionRate}%`}
+          value={`${metrics.sales.conversionRate}% Win Rate`}
           variation={metrics.sales.conversionVariation}
-          trend={`Rs ${(metrics.sales.acceptedQuotationValue / 1000).toFixed(0)}k signed purchase orders`}
           sparklineData={[58, 62, 60, 65, 64, metrics.sales.conversionRate]}
           sparklineColor="emerald"
           accent="success"
           icon={CheckCircle2}
         />
 
-        {/* Card 4 – Active Plant Orders */}
+        {/* Card 4 – Plant Orders */}
         <KPICard
-          label="Active Plant Orders"
-          value={`${metrics.production.activeJobsCount} Runs`}
-          variation={metrics.production.activeJobsVariation}
-          trend={`${metrics.production.completedJobsCount} runs completed this period`}
+          label="Plant Orders"
+          value={`${metrics.production.activeJobsCount} Plant Orders`}
+          trend={metrics.production.completedJobsText || `3 completed ${selectedPeriod === 'month' ? 'this month' : 'this period'}`}
           sparklineData={[6, 8, 7, 9, 10, metrics.production.activeJobsCount]}
           sparklineColor="amber"
           accent="amber"
@@ -161,15 +147,15 @@ export function ModernDashboardView({
         />
       </div>
 
-      {/* ROW 2: SALES PERFORMANCE (~65%) & PROJECT PIPELINE (~35%) */}
+      {/* ROW 2: SALES TREND (~65%) & PROJECT PIPELINE (~35%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* C. SALES PERFORMANCE CHART (8 of 12 cols = 66.7%) */}
+        {/* C. SALES TREND CHART (8 of 12 cols = 66.7%) */}
         <Card className="lg:col-span-8 p-6 space-y-4 border border-border-strong/70 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
             <div>
               <h3 className="text-sm font-semibold text-text-primary tracking-tight">
-                Sales Performance
+                Sales Trend
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
                 Monthly quoted commercial pipeline vs. actual signed purchase orders (MUR)
@@ -182,21 +168,18 @@ export function ModernDashboardView({
                 <span className="w-3 h-3 rounded-sm bg-[#119A94]" /> Quoted Value
               </span>
               <span className="flex items-center gap-1.5 font-medium text-text-primary">
-                <span className="w-3 h-3 rounded-sm bg-[#6E4A9E]" /> Signed Revenue (Won)
-              </span>
-              <span className="flex items-center gap-1.5 text-text-muted">
-                <span className="w-3 h-0.5 bg-[#A0AFA9]" /> Previous Period
+                <span className="w-3 h-3 rounded-sm bg-[#6E4A9E]" /> Signed Revenue
               </span>
             </div>
           </div>
 
           {/* Area & Line Chart Component */}
           <div className="pt-2">
-            <AreaLineChart data={metrics.monthlySalesTrend} height={230} />
+            <AreaLineChart data={metrics.monthlySalesTrend} height={230} showPreviousPeriod={false} />
           </div>
         </Card>
 
-        {/* D. PROJECT STATUS DISTRIBUTION / PIPELINE (4 of 12 cols = 33.3%) */}
+        {/* D. PROJECT PIPELINE (4 of 12 cols = 33.3%) */}
         <Card className="lg:col-span-4 p-6 space-y-4 border border-border-strong/70 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center border-b border-border-subtle pb-3">
@@ -205,14 +188,14 @@ export function ModernDashboardView({
                   Project Pipeline
                 </h3>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  Workflow stage distribution
+                  Distribution across workflow stages
                 </p>
               </div>
               <button
                 onClick={() => onNavigateTab('Projects')}
                 className="text-xs text-brand-primary hover:underline font-semibold flex items-center gap-0.5"
               >
-                View All <ChevronRight className="w-3.5 h-3.5" />
+                View Projects <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -229,9 +212,9 @@ export function ModernDashboardView({
           </div>
 
           <div className="pt-3 border-t border-border-subtle/80 flex items-center justify-between text-xs text-text-secondary">
-            <span>Commercial Conversion:</span>
+            <span>Workflow Stages:</span>
             <span className="font-mono font-bold text-brand-primary">
-              {metrics.sales.conversionRate}% PO Win Rate
+              {metrics.pipelineStages.reduce((acc, s) => acc + s.count, 0)} Total Projects
             </span>
           </div>
         </Card>
@@ -246,17 +229,17 @@ export function ModernDashboardView({
           <div className="flex justify-between items-center border-b border-border-subtle pb-3">
             <div>
               <h3 className="text-sm font-semibold text-text-primary tracking-tight">
-                Top Client Accounts
+                Top Clients
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
-                Highest commercial value generation for {brand}
+                Top 5 client accounts by commercial value ({brand})
               </p>
             </div>
             <button
               onClick={() => onNavigateTab('Clients')}
               className="text-xs text-brand-primary hover:underline font-semibold flex items-center gap-0.5"
             >
-              Directory <ChevronRight className="w-3.5 h-3.5" />
+              All Clients <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -298,18 +281,18 @@ export function ModernDashboardView({
           </div>
         </Card>
 
-        {/* F. RECENT ACTIVITY TIMELINE */}
+        {/* F. RECENT ACTIVITY */}
         <Card className="p-6 space-y-4 border border-border-strong/70 shadow-sm">
           <div className="flex justify-between items-center border-b border-border-subtle pb-3">
             <div>
               <h3 className="text-sm font-semibold text-text-primary tracking-tight">
-                Recent Business Activity
+                Recent Activity
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
-                Live chronological updates across commercial and plant operations
+                Latest sales requests, quotations, and project milestones
               </p>
             </div>
-            <Badge variant="brand">Real-time Feed</Badge>
+            <Badge variant="brand">Recent Updates</Badge>
           </div>
 
           <div className="space-y-3 pt-1">
@@ -335,82 +318,6 @@ export function ModernDashboardView({
           </div>
         </Card>
 
-      </div>
-
-      {/* ROW 4: G. URGENT ITEMS / UPCOMING TASKS */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 text-color-warning" /> Urgent Operational Items & Approvals
-          </h3>
-          <span className="text-[11px] text-text-secondary font-medium">4 items requiring action</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div
-            onClick={() => onNavigateTab('Quotations')}
-            className="p-4 rounded-xl border border-color-warning/40 bg-color-warning/5 hover:border-color-warning hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-color-warning">Quotation Awaiting PO</span>
-              <span className="text-[10px] text-color-warning font-mono">Yesterday</span>
-            </div>
-            <h4 className="text-xs font-bold text-text-primary group-hover:text-color-warning transition-colors line-clamp-1">
-              Le Supermarché du Nord
-            </h4>
-            <p className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">
-              QUO-EXP-2026-0101 (Rs 166,750) approved internally, awaiting client signature.
-            </p>
-          </div>
-
-          <div
-            onClick={() => onNavigateTab('Design')}
-            className="p-4 rounded-xl border border-[#6E4A9E]/40 bg-[#6E4A9E]/5 hover:border-[#6E4A9E] hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#6E4A9E]">Artwork Approval</span>
-              <span className="text-[10px] text-[#6E4A9E] font-mono">2 hrs ago</span>
-            </div>
-            <h4 className="text-xs font-bold text-text-primary group-hover:text-[#6E4A9E] transition-colors line-clamp-1">
-              QuickBite 8-Color Photo Carrier
-            </h4>
-            <p className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">
-              Requires flexographic repeat check and digital proof sign-off before cylinder mounting.
-            </p>
-          </div>
-
-          <div
-            onClick={() => onNavigateTab('Projects')}
-            className="p-4 rounded-xl border border-brand-primary/40 bg-brand-primary/5 hover:border-brand-primary hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary">High-Priority Request</span>
-              <span className="text-[10px] text-brand-primary font-mono">4 hrs ago</span>
-            </div>
-            <h4 className="text-xs font-bold text-text-primary group-hover:text-brand-primary transition-colors line-clamp-1">
-              AgriFertilizer 2,750kg Film
-            </h4>
-            <p className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">
-              Heavy gauge UV masterbatch formulation enquiry awaiting technical validation.
-            </p>
-          </div>
-
-          <div
-            onClick={() => onNavigateTab('Design')}
-            className="p-4 rounded-xl border border-color-success/40 bg-color-success/5 hover:border-color-success hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-color-success">Proof Ready for Client</span>
-              <span className="text-[10px] text-color-success font-mono">1 day ago</span>
-            </div>
-            <h4 className="text-xs font-bold text-text-primary group-hover:text-color-success transition-colors line-clamp-1">
-              Phoenix Beverages 5-Color Proof
-            </h4>
-            <p className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">
-              Shrink film high-opacity white backing approved by prepress, ready for dispatch.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

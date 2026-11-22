@@ -439,8 +439,17 @@ export const DemoService = {
       '3months': 0.70,
       '90d': 0.70,
       'ytd': 1.0,
+      'custom': 1.0,
     };
     const mult = periodMultipliers[period] || 1.0;
+
+    const comparisonSuffix = period === 'month'
+      ? 'compared with last month'
+      : period === 'last_month'
+      ? 'compared with prior month'
+      : period === '3months' || period === '90d'
+      ? 'compared with previous 3 months'
+      : 'compared with previous period';
 
     // 1. Sales Performance
     const totalRequests = Math.max(1, Math.round(projects.length * (period === 'month' ? 0.45 : period === '3months' ? 0.75 : 1.0)));
@@ -454,7 +463,12 @@ export const DemoService = {
     const pendingQuotations = quotations.filter(
       q => q.status === 'sent' || q.status === 'awaiting_response' || q.status === 'pending_approval' || q.status === 'admin_approved'
     );
+    const pendingCount = Math.max(1, Math.round(pendingQuotations.length * mult));
     const pendingQuotationValue = Math.round(pendingQuotations.reduce((acc, q) => acc + q.total_mur, 0) * mult);
+
+    const rejectedQuotations = quotations.filter(q => q.status === 'rejected' || q.status === 'expired');
+    const rejectedCount = Math.max(1, Math.round(rejectedQuotations.length * mult));
+    const rejectedQuotationValue = Math.round(rejectedQuotations.reduce((acc, q) => acc + q.total_mur, 0) * mult) || Math.round(totalQuotationValue * 0.12);
 
     // 2. Customer Breakdown
     const totalCustomers = customers.length;
@@ -674,15 +688,18 @@ export const DemoService = {
         totalQuotationsCount,
         totalQuotationValue,
         quotedSparkline: [1850, 2100, 2600, 3100, 3450, Math.round(totalQuotationValue / 1000)],
-        quotedVariation: { percent: 14.2, isPositive: true, comparisonText: '+14.2% vs previous period' },
+        quotedVariation: { percent: 12, isPositive: true, comparisonText: `+12% ${comparisonSuffix}` },
         acceptedQuotationValue,
         acceptedCount,
         revenueSparkline: [950, 1250, 1600, 1950, 2200, Math.round(acceptedQuotationValue / 1000)],
-        revenueVariation: { percent: 18.5, isPositive: true, comparisonText: '+18.5% vs previous period' },
+        revenueVariation: { percent: 16, isPositive: true, comparisonText: `+16% ${comparisonSuffix}` },
         conversionRate,
-        conversionVariation: { percent: 4.1, isPositive: true, comparisonText: '+4.1% vs previous period' },
+        conversionVariation: { percent: 4, isPositive: true, comparisonText: `+4% ${comparisonSuffix}` },
+        activeProjectsVariation: { percent: 8, isPositive: true, comparisonText: `+8% ${comparisonSuffix}` },
         pendingQuotationValue,
-        pendingCount: pendingQuotations.length,
+        pendingCount,
+        rejectedCount,
+        rejectedQuotationValue,
       },
       customers: {
         totalCustomers,
@@ -700,8 +717,9 @@ export const DemoService = {
       production: {
         totalJobs,
         activeJobsCount: activeJobs.length,
-        activeJobsVariation: { percent: 8.3, isPositive: true, comparisonText: '+8.3% manufacturing run throughput' },
+        activeJobsVariation: { percent: 6, isPositive: true, comparisonText: `+6% ${comparisonSuffix}` },
         completedJobsCount: completedJobs.length,
+        completedJobsText: `${completedJobs.length} completed ${period === 'month' ? 'this month' : 'this period'}`,
         jobsByStage,
         jobsByStagePrintbox,
       },
