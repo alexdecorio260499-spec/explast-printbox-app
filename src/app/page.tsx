@@ -14,6 +14,7 @@ import { ExplastSalesFormModal } from '../components/sales/ExplastSalesFormModal
 import { QuotationsView } from '../components/sales/QuotationsView';
 import { DesignView } from '../components/sales/DesignView';
 import { ReportsView } from '../components/sales/ReportsView';
+import { ModernDashboardView } from '../components/dashboard/ModernDashboardView';
 import { ClientDetailModal } from '../components/sales/ClientDetailModal';
 import { NewClientModal } from '../components/sales/NewClientModal';
 import { ProjectDetailModal } from '../components/sales/ProjectDetailModal';
@@ -218,7 +219,7 @@ export default function App() {
         {/* CONTENT AREA */}
         <div className="p-8 lg:p-10 max-w-7xl mx-auto w-full flex-1">
           {activeTab === 'Dashboard' && (
-            <DashboardView 
+            <ModernDashboardView 
               brand={brand} 
               projects={projects}
               currentUser={currentUser}
@@ -346,261 +347,6 @@ export default function App() {
         currentUser={currentUser}
       />
     </div>
-  );
-}
-
-function DashboardView({
-  brand,
-  projects,
-  currentUser,
-  onNewProject,
-  onNavigateTab,
-  onOpenClient,
-  onOpenProject,
-}: {
-  brand: string;
-  projects: any[];
-  currentUser: AppUser;
-  onNewProject: () => void;
-  onNavigateTab: (tab: string) => void;
-  onOpenClient: (customerId: string) => void;
-  onOpenProject: (project: any) => void;
-}) {
-  const isAdmin = currentUser.role === 'admin';
-  const brandProjects = projects
-    .filter(p => !p.brand || p.brand === brand || p.business_unit === brand)
-    .filter(p => isAdmin || p.assigned_salesperson === currentUser.name || p.salesperson === currentUser.name);
-
-  const metrics = DemoService.getAnalyticsMetrics(isAdmin ? undefined : currentUser.name);
-  const activities = DemoService.getActivities();
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <PageHeader
-        eyebrow={isAdmin ? 'Executive Global Overview' : 'Commercial Sales Representative Portal'}
-        badgeText={isAdmin ? 'Full Company Access' : `Assigned: ${currentUser.name}`}
-        badgeVariant={isAdmin ? 'neutral' : 'brand'}
-        title={brand === 'Explast' ? 'Explast Manufacturing Dashboard' : 'PrintBox Studio Dashboard'}
-        actions={
-          <Button onClick={onNewProject}>
-            <Plus className="w-4 h-4 mr-2" /> New Request
-          </Button>
-        }
-      />
-
-      {/* DYNAMIC TOP KPIS DERIVED FROM ACTUAL DEMO DATA */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        <KPICard
-          label={isAdmin ? 'Active Sales Requests' : 'My Active Requests'}
-          value={String(brandProjects.length)}
-          trend={isAdmin ? 'Across all client accounts' : 'In your assigned portfolio'}
-          accent="brand"
-        />
-        <KPICard
-          label={isAdmin ? 'Total Quoted Pipeline' : 'My Quoted Pipeline'}
-          value={`Rs ${Math.round(metrics.sales.totalQuotationValue / 1000)}k`}
-          trend={`${metrics.sales.totalQuotationsCount} active proposals`}
-          accent="purple"
-        />
-        <KPICard
-          label={isAdmin ? 'Plant Orders in Progress' : 'My Plant Orders in Run'}
-          value={String(metrics.production.activeJobsCount)}
-          trend="Line 1, 2 & 3 operational"
-          accent="success"
-        />
-        <KPICard
-          label={isAdmin ? 'Commercial Win Rate' : 'My Win Rate'}
-          value={`${metrics.sales.conversionRate}%`}
-          trend={`Rs ${Math.round(metrics.sales.acceptedQuotationValue / 1000)}k signed revenue`}
-          accent="amber"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* RECENT PROJECTS TABLE */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              {isAdmin ? 'Recent Packaging Requests (All Representatives)' : `My Recent Requests (${currentUser.name})`}
-            </h3>
-            <button
-              onClick={() => onNavigateTab('Projects')}
-              className="text-xs text-brand-primary hover:underline font-medium flex items-center gap-1"
-            >
-              View Pipeline Kanban ({brandProjects.length}) →
-            </button>
-          </div>
-          <Card className="p-0 overflow-hidden">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-bg-secondary text-text-muted text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-3 font-medium">Project</th>
-                  <th className="px-6 py-3 font-medium">Client</th>
-                  {isAdmin && <th className="px-6 py-3 font-medium">Sales Rep</th>}
-                  <th className="px-6 py-3 font-medium">Specification / Blend</th>
-                  <th className="px-6 py-3 font-medium">Stage</th>
-                  <th className="px-6 py-3 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {brandProjects.slice(0, 6).map((p, idx) => (
-                  <tr
-                    key={p.id || idx}
-                    onClick={() => onOpenProject(p)}
-                    className="hover:bg-bg-secondary/50 transition-colors group cursor-pointer"
-                  >
-                    <td className="px-6 py-4 font-medium text-text-primary">
-                      {p.project_name}
-                      {p.request_type && (
-                        <span className="ml-2 text-[10px] text-text-muted uppercase">({p.request_type})</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-text-secondary">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          p.client_id && onOpenClient(p.client_id);
-                        }}
-                        className="hover:text-brand-primary hover:underline text-left"
-                      >
-                        {p.client?.company_name || p.clients?.company_name || p.client_name || 'Client Record'}
-                      </button>
-                    </td>
-                    {isAdmin && (
-                      <td className="px-6 py-4 text-xs text-text-primary">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold flex items-center justify-center">
-                            {(p.assigned_salesperson || p.salesperson || 'AL').substring(0, 2).toUpperCase()}
-                          </span>
-                          {p.assigned_salesperson || p.salesperson || 'Alex L.'}
-                        </span>
-                      </td>
-                    )}
-                    <td className="px-6 py-4 text-xs text-text-secondary">
-                      {p.formulation ? (
-                        <span>
-                          <strong className="text-text-primary">{p.material_family}</strong> • {p.formulation}
-                        </span>
-                      ) : p.items?.[0] ? (
-                        <span>{p.items[0].description || p.items[0].product_family}</span>
-                      ) : (
-                        'Standard'
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={p.request_status === 'submitted' || p.request_status === 'ready_for_quotation' ? 'brand' : 'neutral'}>
-                        {p.kanban_stage || p.status || 'Discovery'}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenProject(p);
-                        }}
-                        className="text-xs text-brand-primary hover:underline font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        Open Card →
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-
-          {/* CHRONOLOGICAL ACTIVITY LOG */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Live Plant & Commercial Activity</h3>
-            <Card className="p-4 space-y-3">
-              {activities.slice(0, 5).map((act) => (
-                <div key={act.id} className="flex items-start justify-between text-xs pb-2 border-b border-border-subtle/50 last:border-b-0 last:pb-0">
-                  <div className="space-y-0.5">
-                    <p className="font-semibold text-text-primary">{act.title}</p>
-                    <p className="text-text-secondary text-[11px]">{act.description}</p>
-                  </div>
-                  <span className="font-mono text-[10px] text-text-muted whitespace-nowrap ml-4">
-                    {act.timestamp}
-                  </span>
-                </div>
-              ))}
-            </Card>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: NEEDS ATTENTION */}
-        <div className="space-y-6">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Urgent Operational Items</h3>
-          <div className="space-y-4">
-            <AttentionCard 
-              title="8-Colour Cylinder Feasibility"
-              desc="QuickBite 8-Color Photo Carrier requires stack press repeat verification"
-              type="warning"
-              time="2 hrs ago"
-              onClick={() => onNavigateTab('Design')}
-            />
-            <AttentionCard 
-              title="AgriFertilizer Bulk Order"
-              desc="AgriFertilizer 2,750kg heavy yellow film sales request ready for review"
-              type="brand"
-              time="4 hrs ago"
-              onClick={() => onNavigateTab('Projects')}
-            />
-            <AttentionCard 
-              title="Quotation Pending Acceptance"
-              desc="Le Supermarché du Nord QUO-EXP-2026-0101 (MUR 166,750)"
-              type="brand"
-              time="Yesterday"
-              onClick={() => onNavigateTab('Quotations')}
-            />
-            <AttentionCard 
-              title="Prepress Proof Ready for Review"
-              desc="Phoenix Beverages 5-color shrink film artwork proof awaiting client sign-off"
-              type="success"
-              time="1 day ago"
-              onClick={() => onNavigateTab('Design')}
-            />
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}
-
-function AttentionCard({ title, desc, type, time, onClick }: { title: string; desc: string; type: 'warning'|'brand'|'error'|'success'; time: string; onClick?: () => void }) {
-  const icons = {
-    warning: AlertCircle,
-    brand: Clock,
-    error: AlertCircle,
-    success: CheckCircle2,
-  };
-  const Icon = icons[type];
-
-  const colors = {
-    warning: 'text-color-warning bg-color-warning/10 border-color-warning/20',
-    brand: 'text-brand-primary bg-brand-primary-light border-brand-primary/20',
-    error: 'text-color-error bg-color-error/10 border-color-error/20',
-    success: 'text-color-success bg-color-success/10 border-color-success/20',
-  };
-
-  return (
-    <Card
-      onClick={onClick}
-      className={`p-4 border transition-colors cursor-pointer group hover:border-brand-primary ${colors[type]}`}
-    >
-      <div className="flex items-start space-x-3">
-        <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between">
-            <h4 className="text-sm font-medium text-text-primary">{title}</h4>
-            <span className="text-[10px] text-text-muted">{time}</span>
-          </div>
-          <p className="text-xs text-text-secondary mt-1">{desc}</p>
-        </div>
-      </div>
-    </Card>
   );
 }
 
@@ -792,7 +538,7 @@ function PipelineView({
             });
 
             return (
-              <div key={stage.name} className="bg-bg-secondary/40 p-3 rounded-xl border border-border-subtle flex flex-col min-w-0 max-h-[750px]">
+              <div key={stage.name} className="bg-bg-secondary/70 p-3 rounded-xl border border-border-strong/70 shadow-xs flex flex-col min-w-0 max-h-[750px]">
                 <div className="flex justify-between items-center mb-2.5">
                   <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary truncate pr-1">
                     {stage.label}

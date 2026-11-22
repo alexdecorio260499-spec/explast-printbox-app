@@ -387,13 +387,36 @@ export const DemoService = {
     };
   },
 
-  // Comprehensive Analytics Engine with Role & Salesperson Scoping
-  getAnalyticsMetrics(salespersonName?: string) {
+  // Comprehensive Analytics Engine with Role, Salesperson, Brand & Period Scoping
+  getAnalyticsMetrics(
+    salespersonOrOptions?: string | { salespersonName?: string; period?: string; brand?: string },
+    periodOption?: string,
+    brandFilter?: string
+  ) {
+    let salespersonName: string | undefined;
+    let period: string = 'ytd';
+    let brand: string = 'Explast';
+
+    if (typeof salespersonOrOptions === 'object' && salespersonOrOptions !== null) {
+      salespersonName = salespersonOrOptions.salespersonName;
+      period = salespersonOrOptions.period || 'ytd';
+      brand = salespersonOrOptions.brand || 'Explast';
+    } else {
+      salespersonName = salespersonOrOptions;
+      period = periodOption || 'ytd';
+      brand = brandFilter || 'Explast';
+    }
+
     const isScoped = Boolean(salespersonName && salespersonName !== 'all');
     let projects = this.getProjects();
     let quotations = this.getQuotations();
     let customers = this.getCustomers();
     let productionJobs = this.getProductionJobs();
+
+    // Brand filter (if not global)
+    if (brand && brand !== 'Global View') {
+      projects = projects.filter(p => !p.brand || p.brand === brand || p.business_unit === brand);
+    }
 
     if (isScoped && salespersonName) {
       customers = customers.filter(c => c.assigned_salesperson === salespersonName);
@@ -408,17 +431,30 @@ export const DemoService = {
       );
     }
 
+    // Period multiplier adjustments for realistic period filtering
+    const periodMultipliers: Record<string, number> = {
+      'month': 0.35,
+      '30d': 0.35,
+      'last_month': 0.30,
+      '3months': 0.70,
+      '90d': 0.70,
+      'ytd': 1.0,
+    };
+    const mult = periodMultipliers[period] || 1.0;
+
     // 1. Sales Performance
-    const totalRequests = projects.length;
-    const totalQuotationsCount = quotations.length;
-    const totalQuotationValue = quotations.reduce((acc, q) => acc + q.total_mur, 0);
+    const totalRequests = Math.max(1, Math.round(projects.length * (period === 'month' ? 0.45 : period === '3months' ? 0.75 : 1.0)));
+    const totalQuotationsCount = Math.max(1, Math.round(quotations.length * mult));
+    const baseQuotationValue = quotations.reduce((acc, q) => acc + q.total_mur, 0);
+    const totalQuotationValue = Math.round(baseQuotationValue * mult);
     const acceptedQuotations = quotations.filter(q => q.status === 'accepted');
-    const acceptedQuotationValue = acceptedQuotations.reduce((acc, q) => acc + q.total_mur, 0);
-    const conversionRate = totalQuotationsCount > 0 ? (acceptedQuotations.length / totalQuotationsCount) * 100 : 0;
+    const acceptedCount = Math.max(1, Math.round(acceptedQuotations.length * mult));
+    const acceptedQuotationValue = Math.round(acceptedQuotations.reduce((acc, q) => acc + q.total_mur, 0) * mult);
+    const conversionRate = totalQuotationsCount > 0 ? Math.round((acceptedCount / totalQuotationsCount) * 100) : 67;
     const pendingQuotations = quotations.filter(
       q => q.status === 'sent' || q.status === 'awaiting_response' || q.status === 'pending_approval' || q.status === 'admin_approved'
     );
-    const pendingQuotationValue = pendingQuotations.reduce((acc, q) => acc + q.total_mur, 0);
+    const pendingQuotationValue = Math.round(pendingQuotations.reduce((acc, q) => acc + q.total_mur, 0) * mult);
 
     // 2. Customer Breakdown
     const totalCustomers = customers.length;
@@ -429,7 +465,21 @@ export const DemoService = {
       industryCounts[ind] = (industryCounts[ind] || 0) + 1;
     });
 
-    // 3. Materials Breakdown
+    // Top 5 Clients by Value
+    const sortedCustomers = [...customers].sort(
+      (a, b) => (b.total_revenue_mur || 0) - (a.total_revenue_mur || 0)
+    );
+    const topRevenueSum = sortedCustomers.slice(0, 5).reduce((acc, c) => acc + (c.total_revenue_mur || 0), 0) || 1;
+    const topClients = sortedCustomers.slice(0, 5).map(c => ({
+      id: c.id,
+      name: c.company_name,
+      industry: c.industry || 'Packaging',
+      valueMur: Math.round(c.total_revenue_mur * mult) || 350000,
+      percentage: Math.min(100, Math.round((c.total_revenue_mur / topRevenueSum) * 100)),
+      activeProjects: c.active_projects_count || 1,
+    }));
+
+    // 3. Materials Breakdown (Explast vs PrintBox)
     const materialCounts: Record<string, number> = { LDPE: 0, MDPE: 0, PP: 0 };
     const printCounts: Record<string, number> = { plain: 0, printed: 0 };
     const productTypeCounts: Record<string, number> = {
@@ -464,6 +514,20 @@ export const DemoService = {
       }
     });
 
+    // PrintBox Paper Categories & Colors
+    const printboxPaperCounts: Record<string, number> = {
+      'Kraft Board (Recycled)': Math.round(projects.length * 0.42),
+      'Corrugated Fluting (E/B Flute)': Math.round(projects.length * 0.28),
+      'Bleached Food-Grade Board': Math.round(projects.length * 0.18),
+      'Rigid Luxury Boxboard': Math.max(1, Math.round(projects.length * 0.12)),
+    };
+    const printboxColorDistribution: Record<string, number> = {
+      '1 Colour (Monochrome)': Math.round(projects.length * 0.22),
+      '2 - 3 Spot Pantone': Math.round(projects.length * 0.38),
+      '4 Colour Process (CMYK)': Math.round(projects.length * 0.30),
+      '5+ Colours & Foil / Varnish': Math.round(projects.length * 0.10),
+    };
+
     // 4. Production Throughput
     const totalJobs = productionJobs.length;
     const activeJobs = productionJobs.filter(j => j.current_stage !== 'completed');
@@ -475,7 +539,6 @@ export const DemoService = {
       printing: 0,
       conversion: 0,
       quality_control: 0,
-      completed: 0,
     };
     productionJobs.forEach(j => {
       if (jobsByStage[j.current_stage] !== undefined) {
@@ -483,33 +546,141 @@ export const DemoService = {
       }
     });
 
+    const jobsByStagePrintbox: Record<string, number> = {
+      'Pre-flight': Math.max(1, Math.round(totalJobs * 0.15)),
+      'Stock Cut': Math.max(1, Math.round(totalJobs * 0.20)),
+      'Offset Press': Math.max(2, Math.round(totalJobs * 0.30)),
+      'Die-Cutting': Math.max(1, Math.round(totalJobs * 0.20)),
+      'Folding / Gluing': Math.max(1, Math.round(totalJobs * 0.10)),
+      'QC & Packaging': Math.max(1, Math.round(totalJobs * 0.05)),
+    };
+
     // 5. Sales Rep Comparison
-    const salesReps: Record<string, { requests: number; quotes: number; acceptedValue: number }> = {
-      'Alex L.': { requests: 0, quotes: 0, acceptedValue: 0 },
-      'Sunil R.': { requests: 0, quotes: 0, acceptedValue: 0 },
-      'Sarah M.': { requests: 0, quotes: 0, acceptedValue: 0 },
+    const salesRepsRecord: Record<string, { requests: number; quotes: number; acceptedValue: number; wonCount: number }> = {
+      'Alex L.': { requests: 8, quotes: 10, acceptedValue: 1485000, wonCount: 7 },
+      'Sunil R.': { requests: 6, quotes: 8, acceptedValue: 980000, wonCount: 5 },
+      'Sarah M.': { requests: 5, quotes: 7, acceptedValue: 840000, wonCount: 4 },
     };
 
     const allQuotesForComparison = this.getQuotations();
     allQuotesForComparison.forEach(q => {
       const rep = q.salesperson || 'Alex L.';
-      if (!salesReps[rep]) salesReps[rep] = { requests: 0, quotes: 0, acceptedValue: 0 };
-      salesReps[rep].quotes++;
+      if (!salesRepsRecord[rep]) {
+        salesRepsRecord[rep] = { requests: 4, quotes: 0, acceptedValue: 0, wonCount: 0 };
+      }
+      salesRepsRecord[rep].quotes++;
       if (q.status === 'accepted') {
-        salesReps[rep].acceptedValue += q.total_mur;
+        salesRepsRecord[rep].acceptedValue += q.total_mur;
+        salesRepsRecord[rep].wonCount++;
       }
     });
+
+    const salesRepsList = Object.entries(salesRepsRecord).map(([name, repData]) => {
+      const winRate = repData.quotes > 0 ? Math.round((repData.wonCount / repData.quotes) * 100) : 65;
+      const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+      return {
+        name,
+        avatar: initials,
+        quotedValue: Math.round(repData.acceptedValue * 1.45),
+        acceptedValue: repData.acceptedValue,
+        quotesCount: repData.quotes,
+        wonCount: repData.wonCount,
+        winRate,
+      };
+    });
+
+    // 6. Pipeline Workflow Stage Counts for Donut Chart
+    const stageCounts: Record<string, number> = {
+      'Discovery & Enquiry': 0,
+      'Commercial Quoting': 0,
+      'Prepress & Artwork': 0,
+      'Production Order': 0,
+      'Closed & Completed': 0,
+    };
+
+    projects.forEach(p => {
+      const stage = p.kanban_stage || p.request_status;
+      if (stage === 'Completed' || stage === 'Closed') stageCounts['Closed & Completed']++;
+      else if (stage === 'Production Order' || stage === 'In Production') stageCounts['Production Order']++;
+      else if (stage === 'Quoting' || stage === 'Negotiation') stageCounts['Commercial Quoting']++;
+      else if (stage === 'Design' || stage === 'Artwork') stageCounts['Prepress & Artwork']++;
+      else stageCounts['Discovery & Enquiry']++;
+    });
+
+    const pipelineStages = [
+      { label: 'Discovery & Enquiry', count: stageCounts['Discovery & Enquiry'] || 4, color: '#119A94', stageKey: 'Discovery' },
+      { label: 'Commercial Quoting', count: stageCounts['Commercial Quoting'] || 5, color: '#C28A35', stageKey: 'Quoting' },
+      { label: 'Prepress & Artwork', count: stageCounts['Prepress & Artwork'] || 3, color: '#6E4A9E', stageKey: 'Design' },
+      { label: 'Production Order', count: stageCounts['Production Order'] || 4, color: '#0F625F', stageKey: 'Production Order' },
+      { label: 'Closed & Completed', count: stageCounts['Closed & Completed'] || 3, color: '#4F8F68', stageKey: 'Completed' },
+    ];
+
+    // 7. Monthly Sales Trend (6-month interactive timeline)
+    const monthlySalesTrend = [
+      { label: 'Oct', quotedValue: 1850000, signedRevenue: 1150000, previousPeriod: 1400000 },
+      { label: 'Nov', quotedValue: 2200000, signedRevenue: 1420000, previousPeriod: 1750000 },
+      { label: 'Dec', quotedValue: 2750000, signedRevenue: 1890000, previousPeriod: 2100000 },
+      { label: 'Jan', quotedValue: 3100000, signedRevenue: 2150000, previousPeriod: 2450000 },
+      { label: 'Feb', quotedValue: 3450000, signedRevenue: 2420000, previousPeriod: 2800000 },
+      { label: 'Mar', quotedValue: totalQuotationValue || 3840000, signedRevenue: acceptedQuotationValue || 2650000, previousPeriod: 3150000 },
+    ];
+
+    // 8. Conversion Funnel Stages
+    const conversionFunnel = [
+      { label: 'Sales Enquiries & Requests', count: totalRequests || 22, valueMur: Math.round(totalQuotationValue * 1.25), color: '#119A94' },
+      { label: 'Quotations Created & Costed', count: totalQuotationsCount || 19, valueMur: totalQuotationValue, color: '#0E7E7A' },
+      { label: 'Quotations Sent to Customer', count: Math.max(1, Math.round((totalQuotationsCount || 19) * 0.85)), valueMur: Math.round(totalQuotationValue * 0.85), color: '#6E4A9E' },
+      { label: 'Quotations Accepted (PO Won)', count: acceptedCount || 12, valueMur: acceptedQuotationValue, color: '#553780' },
+      { label: 'Production Orders Released', count: Math.max(1, Math.round((acceptedCount || 12) * 0.85)), valueMur: Math.round(acceptedQuotationValue * 0.85), color: '#4F8F68' },
+    ];
+
+    // 9. Dynamic Business Insights
+    const topMaterial = Object.entries(materialCounts).sort((a, b) => b[1] - a[1])[0] || ['LDPE', 8];
+    const topRep = salesRepsList[0] || { name: 'Alex L.', acceptedValue: 1485000 };
+    const businessInsights = [
+      {
+        type: 'highlight' as const,
+        title: `${topMaterial[0]} Formulation Leadership`,
+        desc: `${topMaterial[0]} represents the predominant polymer demand, making up ${Math.round((topMaterial[1] / (projects.length || 1)) * 100)}% of total extrusion batches.`,
+        metric: `${Math.round((topMaterial[1] / (projects.length || 1)) * 100)}% Volume`,
+      },
+      {
+        type: 'trend' as const,
+        title: `Commercial Conversion Velocity`,
+        desc: `Overall Win Rate is performing strong at ${conversionRate}%, representing Rs ${(acceptedQuotationValue / 1000000).toFixed(2)}M in confirmed production orders.`,
+        metric: `${conversionRate}% Win Rate`,
+      },
+      {
+        type: 'highlight' as const,
+        title: `Top Commercial Performer`,
+        desc: `${topRep.name} generated the highest closed revenue with Rs ${(topRep.acceptedValue / 1000).toFixed(0)}k signed across regular client accounts.`,
+        metric: `Rs ${(topRep.acceptedValue / 1000).toFixed(0)}k`,
+      },
+      {
+        type: 'alert' as const,
+        title: `Prepress Tooling Turnaround`,
+        desc: `Flexographic cylinder approvals average 3.2 days from brief receipt, ensuring extrusion lines run on schedule without tooling delay.`,
+        metric: '3.2 Days Avg',
+      },
+    ];
 
     return {
       isScoped,
       scopedSalesperson: salespersonName,
+      activePeriod: period,
+      activeBrand: brand,
       sales: {
         totalRequests,
         totalQuotationsCount,
         totalQuotationValue,
+        quotedSparkline: [1850, 2100, 2600, 3100, 3450, Math.round(totalQuotationValue / 1000)],
+        quotedVariation: { percent: 14.2, isPositive: true, comparisonText: '+14.2% vs previous period' },
         acceptedQuotationValue,
-        acceptedCount: acceptedQuotations.length,
-        conversionRate: Math.round(conversionRate),
+        acceptedCount,
+        revenueSparkline: [950, 1250, 1600, 1950, 2200, Math.round(acceptedQuotationValue / 1000)],
+        revenueVariation: { percent: 18.5, isPositive: true, comparisonText: '+18.5% vs previous period' },
+        conversionRate,
+        conversionVariation: { percent: 4.1, isPositive: true, comparisonText: '+4.1% vs previous period' },
         pendingQuotationValue,
         pendingCount: pendingQuotations.length,
       },
@@ -523,14 +694,24 @@ export const DemoService = {
         printCounts,
         productTypeCounts,
         colorDistribution,
+        printboxPaperCounts,
+        printboxColorDistribution,
       },
       production: {
         totalJobs,
         activeJobsCount: activeJobs.length,
+        activeJobsVariation: { percent: 8.3, isPositive: true, comparisonText: '+8.3% manufacturing run throughput' },
         completedJobsCount: completedJobs.length,
         jobsByStage,
+        jobsByStagePrintbox,
       },
-      salesReps,
+      monthlySalesTrend,
+      pipelineStages,
+      conversionFunnel,
+      topClients,
+      salesReps: salesRepsRecord,
+      salesRepsList,
+      businessInsights,
     };
   },
 };

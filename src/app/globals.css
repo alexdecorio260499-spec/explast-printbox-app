@@ -2,18 +2,18 @@
 
 :root {
   /* Global Neutral Palette */
-  --bg-page: #F7F8F6;
-  --bg-secondary: #F1F3F0;
+  --bg-page: #F7F9F8;
+  --bg-secondary: #EDF2EF;
   --bg-card: #FFFFFF;
   --bg-input: #FFFFFF;
-  --bg-disabled: #EEF1EF;
+  --bg-disabled: #E9EFEc;
   
-  --text-primary: #17211F;
-  --text-secondary: #66716D;
-  --text-muted: #8C9692;
+  --text-primary: #192625;
+  --text-secondary: #63706D;
+  --text-muted: #879490;
   
-  --border-subtle: #E3E8E5;
-  --border-strong: #D3DBD7;
+  --border-subtle: #D8E0DC;
+  --border-strong: #C2CCC8;
   
   /* Semantic Palette */
   --color-success: #4F8F68;

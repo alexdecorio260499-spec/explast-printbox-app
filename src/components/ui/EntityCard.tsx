@@ -38,9 +38,9 @@ export function EntityCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-bg-card rounded-lg border border-border-subtle ${
+      className={`bg-bg-card rounded-lg border border-border-strong/60 ${
         compact ? 'p-3' : 'p-3.5 sm:p-4'
-      } border-t-2 border-t-brand-primary shadow-xs hover:border-brand-primary hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between ${className}`}
+      } border-t-2 border-t-brand-primary shadow-sm hover:border-brand-primary hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between ${className}`}
     >
       <div>
         {/* TOP ROW: CATEGORY & HOVER ACTION */}
