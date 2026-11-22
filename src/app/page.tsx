@@ -45,6 +45,8 @@ import {
   Building2,
   Shield,
   UserCheck,
+  LayoutGrid,
+  Kanban,
 } from 'lucide-react';
 
 export default function App() {
@@ -615,11 +617,61 @@ function PipelineView({
   onNewProject: () => void;
   onOpenProject: (project: any) => void;
 }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
+
   const isAdmin = currentUser.role === 'admin';
   const brandProjects = projects
     .filter(p => !p.brand || p.brand === brand || p.business_unit === brand)
     .filter(p => isAdmin || p.assigned_salesperson === currentUser.name || p.salesperson === currentUser.name);
-  
+
+  // Compute stage counts for filter pills
+  const discoveryCount = brandProjects.filter(p => p.kanban_stage === 'Discovery' || !p.kanban_stage).length;
+  const quotingCount = brandProjects.filter(p => p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation').length;
+  const prodCount = brandProjects.filter(p => p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production').length;
+  const completedCount = brandProjects.filter(p => p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed').length;
+
+  const filterOptions: FilterOption[] = [
+    { id: 'all', label: 'All Projects', count: brandProjects.length },
+    { id: 'Discovery', label: 'Discovery', count: discoveryCount },
+    { id: 'Quoting', label: 'Quoting', count: quotingCount },
+    { id: 'Production Order', label: 'Production Order', count: prodCount },
+    { id: 'Completed', label: 'Completed', count: completedCount },
+  ];
+
+  const filteredProjects = brandProjects.filter(p => {
+    const q = searchTerm.toLowerCase().trim();
+    const matchesSearch = !q || (
+      p.project_name?.toLowerCase().includes(q) ||
+      p.client_name?.toLowerCase().includes(q) ||
+      p.client?.company_name?.toLowerCase().includes(q) ||
+      p.clients?.company_name?.toLowerCase().includes(q) ||
+      p.material_family?.toLowerCase().includes(q) ||
+      p.formulation?.toLowerCase().includes(q) ||
+      p.final_product_type?.toLowerCase().includes(q) ||
+      p.assigned_salesperson?.toLowerCase().includes(q) ||
+      p.salesperson?.toLowerCase().includes(q) ||
+      p.request_type?.toLowerCase().includes(q)
+    );
+
+    if (!matchesSearch) return false;
+
+    if (stageFilter === 'all') return true;
+    if (stageFilter === 'Discovery') return p.kanban_stage === 'Discovery' || !p.kanban_stage;
+    if (stageFilter === 'Quoting') return p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation';
+    if (stageFilter === 'Production Order') return p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production';
+    if (stageFilter === 'Completed') return p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed';
+    return true;
+  });
+
+  const getStageVariant = (stage?: string): 'neutral' | 'warning' | 'brand' | 'success' => {
+    if (stage === 'Completed' || stage === 'Closed') return 'success';
+    if (stage === 'Production Order' || stage === 'In Production') return 'brand';
+    if (stage === 'Quoting' || stage === 'Negotiation') return 'warning';
+    return 'neutral';
+  };
+
   const stages = [
     { name: 'Discovery', label: '1. Discovery & Enquiry' },
     { name: 'Quoting', label: '2. Commercial Quoting' },
@@ -628,10 +680,10 @@ function PipelineView({
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300">
       <PageHeader
-        eyebrow={isAdmin ? 'Enterprise Pipeline Kanban' : 'Assigned Pipeline Portfolio'}
-        badgeText={isAdmin ? 'All Sales Reps' : `${brandProjects.length} Projects for ${currentUser.name}`}
+        eyebrow={isAdmin ? 'Enterprise Pipeline Kanban & Portfolio' : 'Assigned Pipeline Portfolio'}
+        badgeText={isAdmin ? `${filteredProjects.length} of ${brandProjects.length} Projects` : `${filteredProjects.length} Assigned to ${currentUser.name}`}
         badgeVariant={isAdmin ? 'neutral' : 'brand'}
         title={isAdmin ? `Active ${brand} Projects (Company-wide)` : `My Active ${brand} Projects`}
         actions={
@@ -639,60 +691,151 @@ function PipelineView({
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        {stages.map((stage) => {
-          const stageProjects = brandProjects.filter(p => {
-            if (stage.name === 'Discovery') return p.kanban_stage === 'Discovery' || !p.kanban_stage;
-            if (stage.name === 'Quoting') return p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation';
-            if (stage.name === 'Production Order') return p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production';
-            if (stage.name === 'Completed') return p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed';
-            return false;
-          });
+      {/* FILTER & SEARCH TOOLBAR WITH VIEW TOGGLE */}
+      <FilterToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search projects by project name, customer, formulation, or sales rep..."
+        filterOptions={filterOptions}
+        activeFilter={stageFilter}
+        onFilterChange={setStageFilter}
+        rightContent={
+          <div className="flex items-center gap-1 bg-bg-secondary p-0.5 rounded-lg border border-border-subtle shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`px-2.5 py-1 text-xs rounded font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-bg-card text-brand-primary shadow-xs font-semibold'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+              title="Card Grid View (Client style)"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Grid
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('kanban')}
+              className={`px-2.5 py-1 text-xs rounded font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === 'kanban'
+                  ? 'bg-bg-card text-brand-primary shadow-xs font-semibold'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+              title="Kanban Board View"
+            >
+              <Kanban className="w-3.5 h-3.5" /> Kanban
+            </button>
+          </div>
+        }
+      />
 
-          return (
-            <div key={stage.name} className="bg-bg-secondary/40 p-3.5 rounded-xl border border-border-subtle flex flex-col min-w-0">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary truncate pr-1">
-                  {stage.label}
-                </h3>
-                <Badge variant="neutral">{stageProjects.length}</Badge>
-              </div>
-
-              <div className="space-y-3 flex-1 min-w-0">
-                {stageProjects.map((proj) => (
-                  <EntityCard
-                    key={proj.id}
-                    category={proj.final_product_type || proj.request_type || 'Packaging'}
-                    title={proj.project_name}
-                    subtitle={proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client Record'}
-                    specPrimary={
-                      proj.formulation ? (
-                        <>
-                          <strong className="text-text-primary font-medium">{proj.material_family}</strong> • {proj.formulation}
-                        </>
-                      ) : 'Standard Packaging'
-                    }
-                    specSecondary={
-                      proj.print_type === 'printed' ? `${proj.printing_spec?.num_colors || 1} Colors` : 'Plain'
-                    }
-                    salespersonName={proj.assigned_salesperson || proj.salesperson || 'Alex L.'}
-                    statusLabel={proj.technical_assessment?.status || proj.request_status || proj.kanban_stage || 'Active'}
-                    statusVariant="brand"
-                    hoverActionText="Open Details →"
-                    onClick={() => onOpenProject(proj)}
-                  />
-                ))}
-
-                {stageProjects.length === 0 && (
-                  <div className="border border-dashed border-border-subtle rounded-lg p-5 text-center text-xs text-text-muted">
-                    No projects in this stage
-                  </div>
-                )}
-              </div>
+      {/* VIEW MODE 1: CLIENT-STYLE 3-COLUMN CARD GRID (DEFAULT) */}
+      {viewMode === 'grid' && (
+        <>
+          {filteredProjects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProjects.map((proj) => (
+                <EntityCard
+                  key={proj.id}
+                  category={proj.final_product_type || proj.request_type || 'Packaging'}
+                  title={proj.project_name}
+                  subtitle={proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client Record'}
+                  specPrimary={
+                    proj.formulation ? (
+                      <>
+                        <strong className="text-text-primary font-medium">{proj.material_family}</strong> • {proj.formulation}
+                      </>
+                    ) : 'Standard Packaging'
+                  }
+                  specSecondary={
+                    proj.print_type === 'printed' ? `${proj.printing_spec?.num_colors || 1} Colors Flexo` : 'Plain Film'
+                  }
+                  salespersonName={proj.assigned_salesperson || proj.salesperson || 'Alex L.'}
+                  statusLabel={proj.kanban_stage || proj.technical_assessment?.status || proj.request_status || 'Active'}
+                  statusVariant={getStageVariant(proj.kanban_stage)}
+                  hoverActionText="Open Details →"
+                  onClick={() => onOpenProject(proj)}
+                />
+              ))}
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            <Card className="p-12 text-center border-dashed border-border-strong">
+              <p className="text-sm font-semibold text-text-primary mb-1">No matching projects found</p>
+              <p className="text-xs text-text-secondary mb-4">
+                No projects matched &ldquo;{searchTerm}&rdquo;. Try another search term or reset filters.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStageFilter('all');
+                }}
+              >
+                Clear Search
+              </Button>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* VIEW MODE 2: COMPACT KANBAN BOARD */}
+      {viewMode === 'kanban' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+          {stages.map((stage) => {
+            const stageProjects = filteredProjects.filter(p => {
+              if (stage.name === 'Discovery') return p.kanban_stage === 'Discovery' || !p.kanban_stage;
+              if (stage.name === 'Quoting') return p.kanban_stage === 'Quoting' || p.kanban_stage === 'Negotiation';
+              if (stage.name === 'Production Order') return p.kanban_stage === 'Production Order' || p.kanban_stage === 'In Production';
+              if (stage.name === 'Completed') return p.kanban_stage === 'Completed' || p.kanban_stage === 'Closed';
+              return false;
+            });
+
+            return (
+              <div key={stage.name} className="bg-bg-secondary/40 p-3.5 rounded-xl border border-border-subtle flex flex-col min-w-0 max-h-[750px]">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary truncate pr-1">
+                    {stage.label}
+                  </h3>
+                  <Badge variant="neutral">{stageProjects.length}</Badge>
+                </div>
+
+                <div className="space-y-3 flex-1 min-w-0 overflow-y-auto pr-1">
+                  {stageProjects.map((proj) => (
+                    <EntityCard
+                      key={proj.id}
+                      category={proj.final_product_type || proj.request_type || 'Packaging'}
+                      title={proj.project_name}
+                      subtitle={proj.client?.company_name || proj.clients?.company_name || proj.client_name || 'Client Record'}
+                      specPrimary={
+                        proj.formulation ? (
+                          <>
+                            <strong className="text-text-primary font-medium">{proj.material_family}</strong> • {proj.formulation}
+                          </>
+                        ) : 'Standard Packaging'
+                      }
+                      specSecondary={
+                        proj.print_type === 'printed' ? `${proj.printing_spec?.num_colors || 1} Colors` : 'Plain'
+                      }
+                      salespersonName={proj.assigned_salesperson || proj.salesperson || 'Alex L.'}
+                      statusLabel={proj.technical_assessment?.status || proj.request_status || proj.kanban_stage || 'Active'}
+                      statusVariant={getStageVariant(proj.kanban_stage)}
+                      hoverActionText="Open Details →"
+                      onClick={() => onOpenProject(proj)}
+                    />
+                  ))}
+
+                  {stageProjects.length === 0 && (
+                    <div className="border border-dashed border-border-subtle rounded-lg p-5 text-center text-xs text-text-muted">
+                      No projects in this stage
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
